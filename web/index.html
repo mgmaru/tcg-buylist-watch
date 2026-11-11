@@ -152,8 +152,22 @@ button.small{font-size:12px;padding:4px 10px;min-height:32px;font-weight:500}
     </section>
     <div class="list" id="log-list"></div>
     <section class="panel">
+      <h2>記録の保存先</h2>
+      <p id="sync-status" class="note"></p>
+      <div id="sync-off" class="form" style="margin-top:8px">
+        <div class="wide"><label for="sync-repo">非公開リポジトリ（所有者/名前）</label><input type="text" id="sync-repo" placeholder="mgmaru/tcg-trades" autocomplete="off" autocapitalize="off"></div>
+        <div class="wide"><label for="sync-token">アクセストークン（このリポジトリの Contents を読み書きできるもの）</label><input type="text" id="sync-token" autocomplete="off" autocapitalize="off" style="-webkit-text-security:disc"></div>
+        <div class="wide"><button type="button" class="primary" id="sync-connect">GitHubに保存する</button></div>
+        <p class="note wide">トークンはこのブラウザにだけ保存され、GitHub以外には送りません。権限は記録用のリポジトリだけに絞ってください。</p>
+      </div>
+      <div id="sync-on" class="btns" style="margin-top:8px" hidden>
+        <button type="button" id="sync-now">今すぐ同期</button>
+        <button type="button" id="sync-disconnect">接続を解除</button>
+      </div>
+    </section>
+    <section class="panel">
       <h2>記録の書き出しと読み込み</h2>
-      <p class="note">記録はこのブラウザの中だけに保存されます。ブラウザのデータを消すと失われるので、ときどき書き出してください。</p>
+      <p class="note">GitHubに保存していない間は、記録はこのブラウザの中だけにあります。ブラウザのデータを消すと失われるので、ときどき書き出してください。</p>
       <div class="btns" style="margin-top:8px">
         <button type="button" id="log-export">ファイルに書き出す</button>
         <label class="check-row" for="log-import" style="border:1px solid var(--line);border-radius:7px;padding:8px 12px;min-height:40px;font-weight:700;cursor:pointer">ファイルから読み込む<input type="file" id="log-import" accept="application/json,.json" hidden></label>
@@ -185,11 +199,13 @@ function shopName(i){var s=DATA.shops[i];return SHOP_LABEL[s.id]||s.id;}
 
 var prices=load("checker.prices",{});
 var trades=load("checker.trades",[]);
+/* 削除した記録は deleted の印だけ残す。別の端末との同期で復活させないため */
+function liveTrades(){return trades.filter(function(t){return !t.deleted;});}
 /* 査定ごとの実績。3件以上あれば、仮の比率の代わりに使う */
 function actualRates(){
   var out={};
   GRADES.forEach(function(g){
-    var xs=trades.filter(function(t){return t.status==="sold"&&t.grade===g[0]&&t.expected>0;}).map(function(t){return t.sold/t.expected;});
+    var xs=liveTrades().filter(function(t){return t.status==="sold"&&t.grade===g[0]&&t.expected>0;}).map(function(t){return t.sold/t.expected;});
     out[g[0]]={n:xs.length,rate:xs.length?xs.reduce(function(a,b){return a+b;},0)/xs.length:null};
   });
   return out;
@@ -358,8 +374,8 @@ function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()
 function saveTrades(){save("checker.trades",trades);}
 function profitOf(t){return t.sold-t.cost-t.fees;}
 function renderLog(){
-  var act=refreshRates();
-  var sold=trades.filter(function(t){return t.status==="sold";}),held=trades.filter(function(t){return t.status!=="sold";});
+  var act=refreshRates(),all=liveTrades();
+  var sold=all.filter(function(t){return t.status==="sold";}),held=all.filter(function(t){return t.status!=="sold";});
   var profit=sold.reduce(function(a,t){return a+profitOf(t);},0);
   var stock=held.reduce(function(a,t){return a+t.cost+t.fees;},0);
   $("log-summary").innerHTML=
@@ -370,8 +386,8 @@ function renderLog(){
     var a=act[g[0]];
     return '<tr><td>'+g[1]+'</td><td class="num">'+Math.round(DEFAULT_RATE[g[0]]*100)+'%</td><td class="num">'+
       (a.n?Math.round(a.rate*100)+'%（'+a.n+'件'+(a.n>=MIN_SAMPLES?"・計算に使用":"")+'）':"まだなし")+'</td></tr>';}).join("");
-  if(!trades.length){$("log-list").innerHTML='<p class="empty">まだ記録がありません。チェックの画面でカードを開いて「この出品を記録する」を押すと、カード名と買取価格が入った状態で始められます。</p>';return;}
-  var sorted=trades.slice().sort(function(a,b){return (a.status==="sold")-(b.status==="sold")||(b.date>a.date?1:b.date<a.date?-1:0);});
+  if(!all.length){$("log-list").innerHTML='<p class="empty">まだ記録がありません。チェックの画面でカードを開いて「この出品を記録する」を押すと、カード名と買取価格が入った状態で始められます。</p>';return;}
+  var sorted=all.slice().sort(function(a,b){return (a.status==="sold")-(b.status==="sold")||(b.date>a.date?1:b.date<a.date?-1:0);});
   $("log-list").innerHTML=sorted.map(function(t){
     var head='<div class="row-top"><b>'+esc(t.name)+'</b><span class="pill '+(t.status==="sold"?(profitOf(t)>=0?"good":"bad"):"warn")+'">'+(t.status==="sold"?"売却済み":"在庫")+'</span></div>'+
       '<span class="note num">'+esc([t.number,t.date,t.source].filter(Boolean).join(" ・ "))+'</span>'+
@@ -393,10 +409,10 @@ function renderLog(){
     return '<div class="row" data-id="'+t.id+'">'+head+body+'</div>';
   }).join("");
 }
-function afterTradeChange(){saveTrades();renderLog();if(DATA)renderCheck();}
+function afterTradeChange(){saveTrades();renderLog();if(DATA)renderCheck();syncNow();}
 $("log-form").addEventListener("submit",function(e){
   e.preventDefault();
-  trades.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),status:"holding",name:$("l-name").value.trim(),number:$("l-number").value.trim(),
+  trades.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),updated:Date.now(),status:"holding",name:$("l-name").value.trim(),number:$("l-number").value.trim(),
     date:$("l-date").value,cost:Number($("l-cost").value)||0,fees:Number($("l-fees").value)||0,expected:Number($("l-expected").value)||0,source:$("l-source").value.trim()});
   this.reset();$("l-date").value=today();$("l-fees").value=0;
   afterTradeChange();
@@ -413,15 +429,16 @@ $("log-list").addEventListener("click",function(e){
     t.status="holding";delete t.sold;delete t.grade;delete t.soldShop;delete t.soldDate;
   }else if(b.dataset.act==="del"){
     if(!b.dataset.armed){b.dataset.armed="1";b.textContent="もう一度押すと削除";return;}
-    trades=trades.filter(function(x){return x.id!==t.id;});
+    t.deleted=true;
   }
+  t.updated=Date.now();
   afterTradeChange();
 });
 $("log-export").addEventListener("click",function(){
   var blob=new Blob([JSON.stringify({version:1,exported_at:new Date().toISOString(),trades:trades},null,2)],{type:"application/json"});
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="trades-"+today()+".json";
   document.body.appendChild(a);a.click();a.remove();
-  $("log-msg").textContent=trades.length+"件を書き出しました。";
+  $("log-msg").textContent=liveTrades().length+"件を書き出しました。";
 });
 $("log-import").addEventListener("change",function(){
   var file=this.files[0],input=this;if(!file)return;
@@ -436,6 +453,88 @@ $("log-import").addEventListener("change",function(){
     .then(function(){input.value="";});
 });
 
+/* GitHubの非公開リポジトリへの保存 */
+var API=load("checker.api","https://api.github.com");
+var sync=load("checker.sync",null),syncSha=null,syncBusy=false,syncAgain=false;
+function b64encode(text){var bytes=new TextEncoder().encode(text),bin="";bytes.forEach(function(b){bin+=String.fromCharCode(b);});return btoa(bin);}
+function b64decode(b64){var bin=atob(b64.replace(/\s/g,"")),bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return new TextDecoder().decode(bytes);}
+function canonical(rows){return JSON.stringify(rows.slice().sort(function(a,b){return a.id<b.id?-1:a.id>b.id?1:0;}));}
+/* 同じ記録が両方にあれば、あとで更新されたほうを残す */
+function mergeTrades(local,remote){
+  var map=new Map();
+  remote.concat(local).forEach(function(t){
+    if(!t||!t.id)return;
+    var cur=map.get(t.id);
+    if(!cur||(t.updated||0)>(cur.updated||0))map.set(t.id,t);
+  });
+  return Array.from(map.values());
+}
+function ghFetch(method,body){
+  return fetch(API+"/repos/"+sync.repo+"/contents/trades.json",{method:method,cache:"no-store",
+    headers:{"Authorization":"Bearer "+sync.token,"Accept":"application/vnd.github+json"},body:body?JSON.stringify(body):undefined});
+}
+function syncError(status){
+  if(status===401)return "トークンが正しくないか、期限が切れています。作り直して接続し直してください。";
+  if(status===403)return "トークンに書き込みの権限がありません。Contents を Read and write にしてください。";
+  if(status===404)return "リポジトリが見つかりません。名前と、トークンの対象リポジトリを確かめてください。";
+  return "GitHubに保存できませんでした（"+status+"）。記録はこのブラウザには残っています。";
+}
+function renderSync(msg){
+  $("sync-off").hidden=!!sync;$("sync-on").hidden=!sync;
+  $("sync-status").textContent=msg||(sync?"GitHubの "+sync.repo+" に保存しています。":"今はこのブラウザの中だけに保存しています。GitHubの非公開リポジトリに保存すると、ほかの端末でも同じ記録が見られます。");
+}
+async function pullRemote(){
+  var res=await ghFetch("GET");
+  if(res.status===404){
+    /* ファイルがまだないだけか、リポジトリが見えないのかを区別する */
+    var repo=await fetch(API+"/repos/"+sync.repo,{cache:"no-store",headers:{"Authorization":"Bearer "+sync.token,"Accept":"application/vnd.github+json"}});
+    if(!repo.ok)throw repo.status;
+    syncSha=null;return [];
+  }
+  if(!res.ok)throw res.status;
+  var doc=await res.json();syncSha=doc.sha;
+  var parsed=JSON.parse(b64decode(doc.content));
+  return Array.isArray(parsed)?parsed:(parsed.trades||[]);
+}
+async function syncOnce(){
+  var remote=await pullRemote(),merged=mergeTrades(trades,remote);
+  var localChanged=canonical(merged)!==canonical(trades);
+  trades=merged;saveTrades();
+  if(localChanged){renderLog();if(DATA)renderCheck();}
+  if(canonical(merged)===canonical(remote))return;
+  var body={message:"売買の記録を更新",content:b64encode(JSON.stringify({version:1,trades:merged},null,2)+"\n")};
+  if(syncSha)body.sha=syncSha;
+  var res=await ghFetch("PUT",body);
+  if(res.status===409||res.status===422)throw "retry";
+  if(!res.ok)throw res.status;
+  syncSha=(await res.json()).content.sha;
+}
+async function syncNow(){
+  if(!sync)return;
+  if(syncBusy){syncAgain=true;return;}
+  syncBusy=true;renderSync("GitHubと同期しています…");
+  try{
+    try{await syncOnce();}catch(e){if(e!=="retry")throw e;await syncOnce();}
+    var d=new Date();
+    renderSync("GitHubの "+sync.repo+" に保存しました（"+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+"）。");
+  }catch(e){
+    renderSync(typeof e==="number"?syncError(e):e==="retry"?"ほかの端末と更新が重なりました。「今すぐ同期」を押してください。":"GitHubに接続できませんでした。通信の状態を確かめてください。記録はこのブラウザには残っています。");
+  }
+  syncBusy=false;
+  if(syncAgain){syncAgain=false;syncNow();}
+}
+$("sync-connect").addEventListener("click",function(){
+  var repo=$("sync-repo").value.trim().replace(/^https:\/\/github\.com\//,"").replace(/\/$/,""),token=$("sync-token").value.trim();
+  if(!/^[^\/\s]+\/[^\/\s]+$/.test(repo)||!token){renderSync("リポジトリは「所有者/名前」の形で、トークンと一緒に入れてください。");return;}
+  sync={repo:repo,token:token};save("checker.sync",sync);$("sync-token").value="";
+  syncNow();
+});
+$("sync-now").addEventListener("click",syncNow);
+$("sync-disconnect").addEventListener("click",function(){
+  sync=null;syncSha=null;try{localStorage.removeItem("checker.sync");}catch(e){}
+  renderSync("接続を解除しました。記録はこのブラウザに残っています。GitHubのファイルもそのままです。");
+});
+
 /* 表示の切り替え */
 function route(){
   var v=(location.hash||"#check").slice(1);if(["check","movers","shops","log"].indexOf(v)<0)v="check";
@@ -448,6 +547,8 @@ window.addEventListener("hashchange",route);
 $("s-ship").value=settings.ship||0;$("s-kantei").checked=!!settings.kantei;
 $("l-date").value=today();
 renderLog();
+renderSync();
+syncNow();
 route();
 fetch("data.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();}).then(function(d){
   DATA=d;buildGroups();
