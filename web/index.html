@@ -85,8 +85,11 @@ svg.chart{width:100%;height:auto;display:block}
 .hit-name{font-weight:700;font-size:16px;line-height:1.3}
 .hit-buy{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:700;font-size:18px;white-space:nowrap;text-align:right}
 .hit-buy small{display:block;font-size:10px;font-weight:500;color:var(--muted);font-family:var(--font-body)}
-.hit-limits{padding:0 12px 8px;font-size:13px;color:var(--muted)}
-.hit-limits b{color:var(--ink);font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.hit-limits{padding:2px 12px 10px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.lim{background:var(--bg);border-radius:7px;padding:6px 8px;line-height:1.35}
+.lim span{display:block;font-size:11px;color:var(--muted)}
+.lim b{display:block;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:16px}
+.lim-title{grid-column:1 / -1;font-size:12px;color:var(--muted);margin-bottom:-4px}
 .quick{display:grid;grid-template-columns:1fr 1fr 1fr 44px;border-top:1px solid var(--line)}
 .quick a,.quick button{display:flex;align-items:center;justify-content:center;text-align:center;min-height:46px;padding:4px 2px;font-size:13px;font-weight:700;line-height:1.2;text-decoration:none;color:var(--accent);background:none;border:0;border-left:1px solid var(--line);border-radius:0}
 .quick a:first-child{border-left:0}
@@ -104,7 +107,7 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
     <p class="lead" id="stamp">買取価格を読み込んでいます…</p>
   </header>
   <nav aria-label="表示の切り替え">
-    <a href="#check" data-view="check">チェック</a>
+    <a href="#check" data-view="check">買取を調べる</a>
     <a href="#movers" data-view="movers">値動き</a>
     <a href="#shops" data-view="shops">店の差</a>
   </nav>
@@ -129,7 +132,7 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
           <label class="check-row" for="s-kantei"><input type="checkbox" id="s-kantei"> あんしん鑑定（1,700円）</label>
         </div>
       </div>
-      <p class="note" style="margin-top:8px">仕入れの上限は、状態Aを100%として A-は56%、Bは20% で買い取られる想定です。仮の比率なので、実際の査定とは違うことがあります。上限からは、ここで入れた費用を引いています。</p>
+      <p class="note" style="margin-top:8px">店の買取価格は「美品（状態A）」のときの値段です。傷があると査定が下がります。このページでは、小傷（A-）なら買取価格の56%、傷あり（B）なら20%で買い取られると仮定して、「いくら以下で仕入れれば黒字か」を出しています。仮の比率なので、実際の査定とは違うことがあります。上限からは、ここで入れた費用を引いています。</p>
     </details>
   </main>
 
@@ -195,8 +198,8 @@ function buildGroups(){
 function verdict(buy,price){
   if(price===null||isNaN(price))return {cls:"",pill:"",text:""};
   var cost=price+extra(),a=buy-cost,b=buy*RATE.b-cost;
-  if(b>=0)return {cls:"good",text:"状態Bでも黒字"};
-  if(a>=buy*0.5)return {cls:"warn",text:"状態Aなら大きい"};
+  if(b>=0)return {cls:"good",text:"傷ありの査定でも黒字"};
+  if(a>=buy*0.5)return {cls:"warn",text:"美品の査定なら大きい"};
   if(a>0)return {cls:"warn",text:"利益は小さい"};
   return {cls:"bad",text:"見送り"};
 }
@@ -205,9 +208,10 @@ function outs(g){
   var raw=prices[g.key];
   if(raw===undefined||raw==="")return {cls:"",html:'<span class="note">出品価格を入れると利益が出ます</span>'};
   var buy=buyOf(g),p=Number(raw),v=verdict(buy,p),cost=p+extra();
-  return {cls:v.cls,html:'<span class="pill '+v.cls+'">'+v.text+'</span><span>状態Aで '+signed(buy-cost)+'</span><span>状態A-で '+signed(buy*RATE.am-cost)+'</span><span>状態Bで '+signed(buy*RATE.b-cost)+'</span>'};
+  return {cls:v.cls,html:'<span class="pill '+v.cls+'">'+v.text+'</span><span>美品（A）の査定で '+signed(buy-cost)+'</span><span>小傷（A-）で '+signed(buy*RATE.am-cost)+'</span><span>傷あり（B）で '+signed(buy*RATE.b-cost)+'</span>'};
 }
 function limit(buy,rate){var v=Math.floor(buy*rate-extra());return v>0?yen(v):"なし";}
+function limitText(buy,rate){var v=Math.floor(buy*rate-extra());return v>0?yen(v)+"以下":"買わない";}
 
 function chart(points){
   if(!points||points.length<2)return "";
@@ -237,39 +241,44 @@ function marketLinks(g){
     sold:"https://jp.mercari.com/search?keyword="+kw+"&status=sold_out&sort=created_time&order=desc",
     yahoo:"https://auctions.yahoo.co.jp/closedsearch/closedsearch?p="+kw+"&va="+kw+"&b=1&n=50",
     yahooFlea:"https://paypayfleamarket.yahoo.co.jp/search/"+kw+"?open=1",
-    rush:"https://cardrush.media/pokemon/buying_prices?name="+encodeURIComponent(g.name)
+    rush:"https://cardrush.media/pokemon/buying_prices?name="+encodeURIComponent(g.name),
+    hare:"https://www.hareruya2.com/search?q="+kw
   };
 }
 function detailHtml(g,idx){
-  var o=outs(g),many=g.entries.length>1,buy=buyOf(g),L=marketLinks(g);
+  var o=outs(g),many=g.entries.filter(function(e){return e[7];}).length>1,buy=buyOf(g),L=marketLinks(g);
   var rows=g.entries.map(function(e,j){
-    return '<tr><td>'+(many?'<label class="check-row"><input type="radio" class="js-sel" name="e'+idx+'" value="'+j+'"'+((g.sel||0)===j?" checked":"")+'> '+esc(shopName(e[0]))+'</label>':esc(shopName(e[0])))+'<span class="note">'+esc([e[4],e[3]].filter(Boolean).join("・")||"―")+'</span></td>'+
-      '<td class="num">'+yen(e[7])+'</td><td class="num">'+(e[8]?yen(e[8]):"―")+'</td></tr>';
+    return '<tr><td>'+(many&&e[7]?'<label class="check-row"><input type="radio" class="js-sel" name="e'+idx+'" value="'+j+'"'+((g.sel||0)===j?" checked":"")+'> '+esc(shopName(e[0]))+'</label>':esc(shopName(e[0])))+'<span class="note">'+esc([e[4],e[3]].filter(Boolean).join("・")||"―")+'</span></td>'+
+      '<td class="num">'+(e[7]?yen(e[7]):'<span class="note">買取なし</span>')+'</td><td class="num">'+(e[8]?yen(e[8]):"―")+'</td></tr>';
   }).join("");
   var hist="";
   for(var i=0;i<g.entries.length&&!hist;i++){hist=chart(DATA.history[g.entries[i][0]+":"+g.entries[i][1]]);}
   return '<div class="detail">'+
     '<table><thead><tr><th>店</th><th>買取</th><th>販売</th></tr></thead><tbody>'+rows+'</tbody></table>'+
     (many?'<p class="note">同じ型番でも、店や仕様（1ED・再販・色違いなど）で買取価格が違います。出品に合う行を選ぶと、上限と利益がその買取価格で計算されます。</p>':'')+
-    '<div class="figs">'+
-      '<div class="fig"><span>状態Bでも黒字</span><b>'+limit(buy,RATE.b)+'</b></div>'+
-      '<div class="fig"><span>状態A-なら黒字</span><b>'+limit(buy,RATE.am)+'</b></div>'+
-      '<div class="fig"><span>状態Aなら黒字</span><b>'+limit(buy,RATE.a)+'</b></div></div>'+
+    '<div><label>店の査定ごとの、買ってよい上限（これ以下で仕入れれば黒字）</label><div class="figs">'+
+      '<div class="fig"><span>傷あり（B）の査定</span><b>'+limit(buy,RATE.b)+'</b></div>'+
+      '<div class="fig"><span>小傷（A-）の査定</span><b>'+limit(buy,RATE.am)+'</b></div>'+
+      '<div class="fig"><span>美品（A）の査定</span><b>'+limit(buy,RATE.a)+'</b></div></div></div>'+
     '<div class="card-in"><div><label for="p'+idx+'">見つけた出品の価格（円）</label><input type="number" inputmode="numeric" min="0" id="p'+idx+'" class="js-price" value="'+esc(prices[g.key]===undefined?"":prices[g.key])+'"></div>'+
       '<div class="outs js-outs">'+o.html+'</div></div>'+
     (hist?'<div><label>買取価格の推移</label>'+hist+'</div>':'')+
     '<div class="links"><a class="js-link" href="'+L.yahooFlea+'" target="_blank" rel="noopener">Yahoo!フリマの出品</a>'+
-      '<a class="js-link" href="'+L.rush+'" target="_blank" rel="noopener">カードラッシュの買取表</a></div>'+
+      '<a class="js-link" href="'+L.rush+'" target="_blank" rel="noopener">カードラッシュの買取表</a>'+
+      '<a class="js-link" href="'+L.hare+'" target="_blank" rel="noopener">晴れる屋2で探す</a></div>'+
     '</div>';
 }
 function cardHtml(g,idx){
   var o=outs(g),buy=buyOf(g),L=marketLinks(g),pinned=pins.indexOf(g.key)>=0;
-  var shops=g.entries.length>1?g.entries.length+"件の買取":shopName(g.entries[0][0]);
+  var buying=g.entries.filter(function(e){return e[7];});
+  var shops=buying.length>1?buying.length+"件の買取価格あり":shopName(buying[0][0])+"が買取";
   return '<article class="hit '+o.cls+'" data-i="'+idx+'">'+
     '<button type="button" class="hit-head js-toggle" aria-expanded="'+(g.open?"true":"false")+'">'+
       '<span><span class="hit-name">'+esc(g.name)+'</span><br><span class="card-model num">'+esc(g.number||"型番なし")+' ・ '+esc(shops)+'</span></span>'+
       '<span class="hit-buy"><small>買取（状態A）</small>'+yen(buy)+'</span></button>'+
-    '<div class="hit-limits">仕入れの上限　Bでも黒字 <b>'+limit(buy,RATE.b)+'</b>　A-なら <b>'+limit(buy,RATE.am)+'</b></div>'+
+    '<div class="hit-limits"><div class="lim-title">フリマでいくら以下なら買ってよいか</div>'+
+      '<div class="lim"><span>慎重に買うなら</span><b>'+limitText(buy,RATE.b)+'</b><span>店の査定が「傷あり（B）」でも黒字</span></div>'+
+      '<div class="lim"><span>ふつうに買うなら</span><b>'+limitText(buy,RATE.am)+'</b><span>査定が「小傷（A-）」なら黒字</span></div></div>'+
     '<div class="quick">'+
       '<a class="js-link" href="'+L.onSale+'" target="_blank" rel="noopener">メルカリ<br>新着</a>'+
       '<a class="js-link" href="'+L.sold+'" target="_blank" rel="noopener">メルカリ<br>売り切れ</a>'+
@@ -342,7 +351,7 @@ function renderMovers(){
       '<span class="num">'+yen(m[7])+' → '+yen(m[8])+'</span> '+signed(diff)+(pct!==null?' <span class="note num">'+(pct>=0?"+":"")+pct+'%</span>':'');
     return '<div class="row"><div class="row-top"><b>'+esc(m[3])+'</b><span class="note num">'+esc(m[0].slice(5))+'</span></div>'+
       '<span class="note num">'+esc([m[5],m[6],m[4]].filter(Boolean).join(" ・ "))+' ／ '+esc(shopName(m[1]))+'</span><span>'+body+'</span>'+
-      '<a href="#check" class="js-open" data-q="'+esc(m[3]+(m[6]?" "+m[6]:""))+'" style="font-size:13px">チェックで開く</a></div>';
+      '<a href="#check" class="js-open" data-q="'+esc(m[3]+(m[6]?" "+m[6]:""))+'" style="font-size:13px">このカードの買取を調べる</a></div>';
   }).join("");
 }
 $("mover-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverKind=b.dataset.k;renderMovers();});
@@ -355,7 +364,7 @@ function renderCross(){
       '<span class="note num">'+esc(r[1])+'</span>'+
       '<span>'+esc(SHOP_LABEL[r[2]]||r[2])+'の買取 <b class="num">'+yen(r[5])+'</b> <span class="note">'+esc([r[3],r[4]].filter(Boolean).join("・"))+'</span></span>'+
       '<span>'+esc(SHOP_LABEL[r[6]]||r[6])+'の販売 <b class="num">'+yen(r[9])+'</b> <span class="note">'+esc([r[7],r[8]].filter(Boolean).join("・"))+'</span></span>'+
-      '<a href="#check" class="js-open" data-q="'+esc(r[0]+" "+r[1])+'" style="font-size:13px">チェックで開く</a></div>';
+      '<a href="#check" class="js-open" data-q="'+esc(r[0]+" "+r[1])+'" style="font-size:13px">このカードの買取を調べる</a></div>';
   }).join("");
 }
 document.addEventListener("click",function(e){

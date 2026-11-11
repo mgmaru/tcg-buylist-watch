@@ -62,18 +62,22 @@ def build_movers(shop: int, changes: list[tuple[str, list[dict]]], days: int = 7
 def build_data(data_dir: Path, min_buy: int = 1000, cross_limit: int = 300) -> dict:
     shops, items, movers, history = [], [], [], {}
     loaded = {}
+    for name in SOURCES:
+        loaded[name] = store.read_latest(data_dir / name / "latest.csv")
+    # どこかの店が min_buy 以上で買い取っているカード。ほかの店は買取が安くても比べるために載せる
+    wanted = {compare.match_key(p) for prices in loaded.values() for p in prices if p.buy_price >= min_buy}
+    wanted.discard(None)
     for shop, name in enumerate(SOURCES):
         src_dir = data_dir / name
-        prices = store.read_latest(src_dir / "latest.csv")
+        prices = loaded[name]
         meta_path = src_dir / "meta.json"
         meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
         shops.append({"id": name, "fetched_at": meta.get("fetched_at", ""), "count": len(prices)})
         if not prices:
             continue
-        loaded[name] = prices
         kept = set()
         for p in prices:
-            if p.buy_price >= min_buy:
+            if p.buy_price >= min_buy or compare.match_key(p) in wanted:
                 kept.add(p.item_id)
                 items.append([shop, p.item_id, p.name, p.variant, p.set_code, p.number, p.rarity, p.buy_price, p.sell_price or 0])
         changes = read_changes(src_dir)
@@ -82,6 +86,7 @@ def build_data(data_dir: Path, min_buy: int = 1000, cross_limit: int = 300) -> d
             if item_id in kept:
                 history[f"{shop}:{item_id}"] = points
     movers.sort(key=lambda m: (m[0], abs(m[8] - m[7])), reverse=True)
+    loaded = {k: v for k, v in loaded.items() if v}
     cross = compare.cross_shop(loaded, loaded)[:cross_limit] if len(loaded) >= 2 else []
     return {
         "generated_at": max((s["fetched_at"] for s in shops), default=""),
