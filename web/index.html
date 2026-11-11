@@ -158,7 +158,13 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
 
   <main id="view-shops" class="list" hidden>
     <p class="note">ある店の買取価格が、別の店の販売価格より高い組み合わせです。名前と型番だけで突き合わせているので、1EDと再販のような仕様違いが混ざります。販売価格は在庫がなくても表示されます。</p>
+    <div class="searchbar">
+      <label for="cq">カード名か型番で絞り込む</label>
+      <input type="search" id="cq" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" placeholder="ゲンガー 042/090">
+    </div>
+    <p class="note" id="cross-info"></p>
     <div class="list" id="cross"></div>
+    <button type="button" id="cross-more" hidden>さらに表示</button>
   </main>
 </div>
 
@@ -374,9 +380,15 @@ function renderMovers(){
 $("mover-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverKind=b.dataset.k;renderMovers();});
 
 /* 店の差 */
+var crossShown=50;
 function renderCross(){
-  if(!DATA.cross.length){$("cross").innerHTML='<p class="empty">比べられる店のデータがまだありません。</p>';return;}
-  $("cross").innerHTML=DATA.cross.map(function(r){
+  if(!DATA.cross.length){$("cross").innerHTML='<p class="empty">比べられる店のデータがまだありません。</p>';$("cross-info").textContent="";$("cross-more").hidden=true;return;}
+  var tokens=$("cq").value.trim().split(/\s+/).filter(Boolean).map(norm);
+  var rows=DATA.cross.filter(function(r){var t=norm(r[0]+" "+r[1]+" "+r[3]+" "+r[4]+" "+r[7]+" "+r[8]);return tokens.every(function(k){return t.indexOf(k)>=0;});});
+  $("cross-info").textContent=(tokens.length?rows.length+"件が当てはまります。":"全"+rows.length+"件。")+"差額の大きい順です。";
+  $("cross-more").hidden=rows.length<=crossShown;
+  if(!rows.length){$("cross").innerHTML='<p class="empty">当てはまる組み合わせがありません。「買取を調べる」で探すと、店ごとの買取と販売の価格を見られます。</p>';return;}
+  $("cross").innerHTML=rows.slice(0,crossShown).map(function(r){
     return '<div class="row"><div class="row-top"><b>'+esc(r[0])+'</b><span class="num">'+signed(r[10])+'</span></div>'+
       '<span class="note num">'+esc(r[1])+'</span>'+
       '<span>'+esc(SHOP_LABEL[r[2]]||r[2])+'の買取 <b class="num">'+yen(r[5])+'</b> <span class="note">'+esc([r[3],r[4]].filter(Boolean).join("・"))+'</span></span>'+
@@ -384,6 +396,9 @@ function renderCross(){
       '<a href="#check" class="js-open" data-q="'+esc(r[0]+" "+r[1])+'" style="font-size:13px">このカードの買取を調べる</a></div>';
   }).join("");
 }
+$("cq").addEventListener("input",function(){crossShown=50;renderCross();});
+$("cq").addEventListener("focus",function(){this.select();});
+$("cross-more").addEventListener("click",function(){crossShown+=50;renderCross();});
 document.addEventListener("click",function(e){
   var a=e.target.closest(".js-open");if(!a)return;
   $("q").value=a.dataset.q;shown=30;renderCheck();
