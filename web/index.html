@@ -36,7 +36,7 @@ label{font-size:12px;color:var(--muted);display:block;margin-bottom:3px}
 input[type=text],input[type=number],input[type=search]{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 10px;min-height:42px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 button{font:inherit;font-weight:700;cursor:pointer;border-radius:7px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 12px;min-height:40px}
-nav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+nav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 nav a{text-align:center;padding:9px 4px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;font-weight:700;font-size:14px}
 nav a[aria-current=page]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -76,6 +76,13 @@ svg.chart{width:100%;height:auto;display:block}
 .chart-area{fill:var(--accent);opacity:.12}
 .chart-dot{fill:var(--accent)}
 .chart-text{fill:var(--muted);font-size:10px;font-family:var(--font-num)}
+select{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 10px;min-height:42px}
+input[type=date]{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 10px;min-height:42px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.small{font-size:12px;padding:4px 10px;min-height:32px;font-weight:500}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form .wide{grid-column:1 / -1}
 [hidden]{display:none !important}
 </style>
 </head>
@@ -89,6 +96,7 @@ svg.chart{width:100%;height:auto;display:block}
     <a href="#check" data-view="check">チェック</a>
     <a href="#movers" data-view="movers">値動き</a>
     <a href="#shops" data-view="shops">店の差</a>
+    <a href="#log" data-view="log">記録</a>
   </nav>
 
   <main id="view-check" class="list">
@@ -104,7 +112,7 @@ svg.chart{width:100%;height:auto;display:block}
           <label class="check-row" for="s-kantei"><input type="checkbox" id="s-kantei"> あんしん鑑定（1,700円）</label>
         </div>
       </div>
-      <p class="note" style="margin-top:8px">仕入れの上限は、状態Aを100%として A-は56%、Bは20% で買い取られる想定です。仮の比率なので、実際の査定とは違うことがあります。</p>
+      <p class="note" style="margin-top:8px" id="rate-note"></p>
     </section>
     <p class="note" id="check-info"></p>
     <div class="list" id="cards"></div>
@@ -121,6 +129,38 @@ svg.chart{width:100%;height:auto;display:block}
     <p class="note">ある店の買取価格が、別の店の販売価格より高い組み合わせです。名前と型番だけで突き合わせているので、1EDと再販のような仕様違いが混ざります。販売価格は在庫がなくても表示されます。</p>
     <div class="list" id="cross"></div>
   </main>
+
+  <main id="view-log" class="list" hidden>
+    <section class="panel">
+      <h2>これまでの結果</h2>
+      <div class="figs" id="log-summary"></div>
+      <table style="margin-top:10px"><thead><tr><th>査定</th><th>仮の買取率</th><th>実績の買取率</th></tr></thead><tbody id="log-rates"></tbody></table>
+      <p class="note" style="margin-top:6px">実績は「実際の買取額 ÷ 記録したときの買取価格」の平均です。3件以上たまった査定は、仕入れの上限と利益の計算に実績を使います。</p>
+    </section>
+    <section class="panel">
+      <h2 id="log-form-title">仕入れを記録する</h2>
+      <form id="log-form" class="form">
+        <div class="wide"><label for="l-name">カード名</label><input type="text" id="l-name" required></div>
+        <div><label for="l-number">型番</label><input type="text" id="l-number" placeholder="042/090"></div>
+        <div><label for="l-date">仕入れた日</label><input type="date" id="l-date" required></div>
+        <div><label for="l-cost">仕入れ値（円）</label><input type="number" id="l-cost" inputmode="numeric" min="0" required></div>
+        <div><label for="l-fees">送料・鑑定料など（円）</label><input type="number" id="l-fees" inputmode="numeric" min="0" value="0"></div>
+        <div><label for="l-expected">記録時の買取価格（円）</label><input type="number" id="l-expected" inputmode="numeric" min="0" required></div>
+        <div><label for="l-source">仕入れ先</label><input type="text" id="l-source" placeholder="メルカリ"></div>
+        <div class="wide"><button type="submit" class="primary">在庫として保存</button></div>
+      </form>
+    </section>
+    <div class="list" id="log-list"></div>
+    <section class="panel">
+      <h2>記録の書き出しと読み込み</h2>
+      <p class="note">記録はこのブラウザの中だけに保存されます。ブラウザのデータを消すと失われるので、ときどき書き出してください。</p>
+      <div class="btns" style="margin-top:8px">
+        <button type="button" id="log-export">ファイルに書き出す</button>
+        <label class="check-row" for="log-import" style="border:1px solid var(--line);border-radius:7px;padding:8px 12px;min-height:40px;font-weight:700;cursor:pointer">ファイルから読み込む<input type="file" id="log-import" accept="application/json,.json" hidden></label>
+      </div>
+      <p class="note" id="log-msg" style="margin-top:6px"></p>
+    </section>
+  </main>
 </div>
 
 <script>
@@ -128,7 +168,10 @@ svg.chart{width:100%;height:auto;display:block}
 "use strict";
 var SHOP_LABEL={cardrush:"カードラッシュ",hareruya2:"晴れる屋2"};
 var KIND_LABEL={all:"すべて",up:"上がった",down:"下がった",removed:"掲載終了","new":"新しく掲載"};
-var RATE={a:1,am:0.56,b:0.2};
+var DEFAULT_RATE={a:1,am:0.56,b:0.2,c:0.1};
+var GRADES=[["a","状態A"],["am","状態A-"],["b","状態B"],["c","状態C"]];
+var RATE={a:1,am:0.56,b:0.2,c:0.1};
+var MIN_SAMPLES=3;
 var DATA=null,GROUPS=[],shown=30,moverKind="up";
 
 function $(id){return document.getElementById(id);}
@@ -141,6 +184,26 @@ function signed(n){return '<b class="num '+(n>=0?"pos":"neg")+'">'+(n>=0?"+":"")
 function shopName(i){var s=DATA.shops[i];return SHOP_LABEL[s.id]||s.id;}
 
 var prices=load("checker.prices",{});
+var trades=load("checker.trades",[]);
+/* 査定ごとの実績。3件以上あれば、仮の比率の代わりに使う */
+function actualRates(){
+  var out={};
+  GRADES.forEach(function(g){
+    var xs=trades.filter(function(t){return t.status==="sold"&&t.grade===g[0]&&t.expected>0;}).map(function(t){return t.sold/t.expected;});
+    out[g[0]]={n:xs.length,rate:xs.length?xs.reduce(function(a,b){return a+b;},0)/xs.length:null};
+  });
+  return out;
+}
+function refreshRates(){
+  var act=actualRates(),used=[];
+  GRADES.forEach(function(g){
+    var useActual=act[g[0]].n>=MIN_SAMPLES;
+    RATE[g[0]]=useActual?act[g[0]].rate:DEFAULT_RATE[g[0]];
+    used.push(g[1].replace("状態","")+"は"+Math.round(RATE[g[0]]*100)+"%"+(useActual?"（実績）":""));
+  });
+  $("rate-note").textContent="仕入れの上限は、記録時の買取価格に対して "+used.slice(0,3).join("、")+" で買い取られる想定です。実績のない査定は仮の比率なので、実際とは違うことがあります。";
+  return act;
+}
 var settings=load("checker.settings",{ship:0,kantei:false});
 function extra(){return (Number(settings.ship)||0)+(settings.kantei?1700:0);}
 
@@ -217,6 +280,7 @@ function cardHtml(g,idx){
       '<div class="outs js-outs">'+o.html+'</div></div>'+
     (hist?'<div><label>買取価格の推移</label>'+hist+'</div>':'')+
     (many?'<p class="note">同じ型番でも、店や仕様（1ED・再販・色違いなど）で買取価格が違います。出品に合う行を選ぶと、上限と利益がその買取価格で計算されます。</p>':'')+
+    '<div class="btns"><button type="button" class="small js-log">この出品を記録する</button></div>'+
     '<div class="links"><a href="https://jp.mercari.com/search?keyword='+kw+'&status=on_sale" target="_blank" rel="noopener">メルカリで型番検索</a>'+
       '<a href="https://cardrush.media/pokemon/buying_prices?name='+encodeURIComponent(g.name)+'" target="_blank" rel="noopener">カードラッシュの買取表</a></div>'+
     '</article>';
@@ -233,6 +297,14 @@ function renderCheck(){
 }
 $("q").addEventListener("input",function(){shown=30;renderCheck();});
 $("more").addEventListener("click",function(){shown+=30;renderCheck();});
+$("cards").addEventListener("click",function(e){
+  if(!e.target.classList.contains("js-log"))return;
+  var g=matched[Number(e.target.closest("article").dataset.i)];
+  $("l-name").value=g.name;$("l-number").value=g.number;$("l-expected").value=buyOf(g);
+  $("l-cost").value=prices[g.key]===undefined?"":prices[g.key];$("l-fees").value=extra();
+  location.hash="#log";
+  setTimeout(function(){$("log-form-title").scrollIntoView();$("l-cost").focus();},0);
+});
 $("cards").addEventListener("change",function(e){
   if(!e.target.classList.contains("js-sel"))return;
   var art=e.target.closest("article"),i=Number(art.dataset.i),g=matched[i];
@@ -281,20 +353,105 @@ document.addEventListener("click",function(e){
   $("q").value=a.dataset.q;shown=30;renderCheck();
 });
 
+/* 売買の記録 */
+function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function saveTrades(){save("checker.trades",trades);}
+function profitOf(t){return t.sold-t.cost-t.fees;}
+function renderLog(){
+  var act=refreshRates();
+  var sold=trades.filter(function(t){return t.status==="sold";}),held=trades.filter(function(t){return t.status!=="sold";});
+  var profit=sold.reduce(function(a,t){return a+profitOf(t);},0);
+  var stock=held.reduce(function(a,t){return a+t.cost+t.fees;},0);
+  $("log-summary").innerHTML=
+    '<div class="fig"><span>利益の合計</span><b class="'+(profit>=0?"pos":"neg")+'">'+(profit>=0?"+":"")+yen(profit)+'</b></div>'+
+    '<div class="fig"><span>売却済み</span><b>'+sold.length+'件</b></div>'+
+    '<div class="fig"><span>在庫 '+held.length+'件の仕入れ額</span><b>'+yen(stock)+'</b></div>';
+  $("log-rates").innerHTML=GRADES.map(function(g){
+    var a=act[g[0]];
+    return '<tr><td>'+g[1]+'</td><td class="num">'+Math.round(DEFAULT_RATE[g[0]]*100)+'%</td><td class="num">'+
+      (a.n?Math.round(a.rate*100)+'%（'+a.n+'件'+(a.n>=MIN_SAMPLES?"・計算に使用":"")+'）':"まだなし")+'</td></tr>';}).join("");
+  if(!trades.length){$("log-list").innerHTML='<p class="empty">まだ記録がありません。チェックの画面でカードを開いて「この出品を記録する」を押すと、カード名と買取価格が入った状態で始められます。</p>';return;}
+  var sorted=trades.slice().sort(function(a,b){return (a.status==="sold")-(b.status==="sold")||(b.date>a.date?1:b.date<a.date?-1:0);});
+  $("log-list").innerHTML=sorted.map(function(t){
+    var head='<div class="row-top"><b>'+esc(t.name)+'</b><span class="pill '+(t.status==="sold"?(profitOf(t)>=0?"good":"bad"):"warn")+'">'+(t.status==="sold"?"売却済み":"在庫")+'</span></div>'+
+      '<span class="note num">'+esc([t.number,t.date,t.source].filter(Boolean).join(" ・ "))+'</span>'+
+      '<span>仕入れ <b class="num">'+yen(t.cost)+'</b>'+(t.fees?' ＋経費 <span class="num">'+yen(t.fees)+'</span>':'')+' ／ 記録時の買取 <span class="num">'+yen(t.expected)+'</span></span>';
+    var body;
+    if(t.status==="sold"){
+      var label=(GRADES.filter(function(g){return g[0]===t.grade;})[0]||["","査定なし"])[1];
+      body='<span>'+esc(t.soldShop||"店")+'に <b class="num">'+yen(t.sold)+'</b> で売却（'+label+(t.expected?'、買取価格の'+Math.round(t.sold/t.expected*100)+'%':'')+'・'+esc(t.soldDate)+'）</span>'+
+        '<span>利益 '+signed(profitOf(t))+'</span>'+
+        '<div class="btns"><button type="button" class="small" data-act="unsell">売却を取り消す</button><button type="button" class="small" data-act="del">削除</button></div>';
+    }else{
+      body='<div class="form" style="margin-top:6px">'+
+        '<div><label for="g'+t.id+'">査定</label><select id="g'+t.id+'" class="js-grade">'+GRADES.map(function(g){return '<option value="'+g[0]+'">'+g[1]+'</option>';}).join("")+'</select></div>'+
+        '<div><label for="a'+t.id+'">実際の買取額（円）</label><input type="number" id="a'+t.id+'" class="js-sold" inputmode="numeric" min="0"></div>'+
+        '<div><label for="h'+t.id+'">売った店</label><input type="text" id="h'+t.id+'" class="js-shop" placeholder="カードラッシュ"></div>'+
+        '<div><label for="d'+t.id+'">売った日</label><input type="date" id="d'+t.id+'" class="js-date" value="'+today()+'"></div></div>'+
+        '<div class="btns"><button type="button" class="small primary" data-act="sell">売却を記録</button><button type="button" class="small" data-act="del">削除</button></div>';
+    }
+    return '<div class="row" data-id="'+t.id+'">'+head+body+'</div>';
+  }).join("");
+}
+function afterTradeChange(){saveTrades();renderLog();if(DATA)renderCheck();}
+$("log-form").addEventListener("submit",function(e){
+  e.preventDefault();
+  trades.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),status:"holding",name:$("l-name").value.trim(),number:$("l-number").value.trim(),
+    date:$("l-date").value,cost:Number($("l-cost").value)||0,fees:Number($("l-fees").value)||0,expected:Number($("l-expected").value)||0,source:$("l-source").value.trim()});
+  this.reset();$("l-date").value=today();$("l-fees").value=0;
+  afterTradeChange();
+});
+$("log-list").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-act]");if(!b)return;
+  var row=b.closest(".row"),t=trades.filter(function(x){return x.id===row.dataset.id;})[0];if(!t)return;
+  if(b.dataset.act==="sell"){
+    var amount=row.querySelector(".js-sold").value;
+    if(amount===""){row.querySelector(".js-sold").focus();return;}
+    t.status="sold";t.sold=Number(amount);t.grade=row.querySelector(".js-grade").value;
+    t.soldShop=row.querySelector(".js-shop").value.trim();t.soldDate=row.querySelector(".js-date").value||today();
+  }else if(b.dataset.act==="unsell"){
+    t.status="holding";delete t.sold;delete t.grade;delete t.soldShop;delete t.soldDate;
+  }else if(b.dataset.act==="del"){
+    if(!b.dataset.armed){b.dataset.armed="1";b.textContent="もう一度押すと削除";return;}
+    trades=trades.filter(function(x){return x.id!==t.id;});
+  }
+  afterTradeChange();
+});
+$("log-export").addEventListener("click",function(){
+  var blob=new Blob([JSON.stringify({version:1,exported_at:new Date().toISOString(),trades:trades},null,2)],{type:"application/json"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="trades-"+today()+".json";
+  document.body.appendChild(a);a.click();a.remove();
+  $("log-msg").textContent=trades.length+"件を書き出しました。";
+});
+$("log-import").addEventListener("change",function(){
+  var file=this.files[0],input=this;if(!file)return;
+  file.text().then(function(text){
+    var doc=JSON.parse(text),rows=Array.isArray(doc)?doc:doc.trades;
+    if(!Array.isArray(rows))throw new Error("形式が違います");
+    var known=new Set(trades.map(function(t){return t.id;})),added=0;
+    rows.forEach(function(t){if(t&&t.id&&t.name&&!known.has(t.id)){trades.push(t);known.add(t.id);added++;}});
+    afterTradeChange();
+    $("log-msg").textContent=added+"件を読み込みました（すでにある記録は飛ばしました）。";
+  }).catch(function(){$("log-msg").textContent="読み込めませんでした。このページから書き出したファイルを選んでください。";})
+    .then(function(){input.value="";});
+});
+
 /* 表示の切り替え */
 function route(){
-  var v=(location.hash||"#check").slice(1);if(["check","movers","shops"].indexOf(v)<0)v="check";
-  ["check","movers","shops"].forEach(function(n){$("view-"+n).hidden=n!==v;});
+  var v=(location.hash||"#check").slice(1);if(["check","movers","shops","log"].indexOf(v)<0)v="check";
+  ["check","movers","shops","log"].forEach(function(n){$("view-"+n).hidden=n!==v;});
   document.querySelectorAll("nav a").forEach(function(a){if(a.dataset.view===v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",route);
 
 $("s-ship").value=settings.ship||0;$("s-kantei").checked=!!settings.kantei;
+$("l-date").value=today();
+renderLog();
 route();
 fetch("data.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();}).then(function(d){
   DATA=d;buildGroups();
-  $("stamp").textContent="買取価格の取得日時："+d.shops.filter(function(s){return s.count;}).map(function(s){return (SHOP_LABEL[s.id]||s.id)+" "+s.fetched_at.slice(0,16).replace("T"," ");}).join("、")+"。毎朝更新されます。";
+  $("stamp").textContent="買取価格の取得日時："+d.shops.filter(function(s){return s.count;}).map(function(s){return (SHOP_LABEL[s.id]||s.id)+" "+s.fetched_at.slice(0,16).replace("T"," ");}).join("、")+"。";
   if(!d.movers.some(function(m){return m[2]==="up";}))moverKind="all";
   renderCheck();renderMovers();renderCross();
 }).catch(function(){
