@@ -64,9 +64,14 @@ reports/cross_shop.csv        店をまたいだ比較の結果
 
 載せるのは買取1,000円以上のカードだけです。
 
-## 定期実行
+## 取得と公開
 
-`.github/workflows/fetch.yml` が毎日 5:17（日本時間）に取得して結果をコミットし、チェッカーを GitHub Pages に公開します。Actions の画面から手動でも実行できます。
+定期実行は今は止めています。カードラッシュが GitHub のサーバーからの接続を拒否する（403）ためです。
+
+- `.github/workflows/fetch.yml`：Actions の画面から手動で実行すると、取得・コミット・公開をします。GitHub 上ではカードラッシュの取得は失敗します
+- `.github/workflows/deploy.yml`：`main` にデータやコードがプッシュされると、保存済みのデータからチェッカーを作り直して公開します
+
+カードラッシュの価格を更新するには、接続できる環境（自宅の回線など）で `fetch` を実行して、`data/` をプッシュします。
 
 Pages を使うには、リポジトリの Settings → Pages で Source を「GitHub Actions」にしてください。非公開リポジトリで Pages を使うには、GitHub の有料プランが必要です。公開したページは、URLを知っていれば誰でも見られます。
 

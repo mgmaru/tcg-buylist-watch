@@ -1,8 +1,10 @@
 name: fetch
 
+# 定期実行は止めている。カードラッシュが GitHub のサーバーからの接続を拒否するため。
+# 再開するときは、下の schedule のコメントを外す。
 on:
-  schedule:
-    - cron: "17 20 * * *" # 毎日 5:17（日本時間）
+  # schedule:
+  #   - cron: "17 20 * * *" # 毎日 5:17（日本時間）
   workflow_dispatch:
 
 permissions:
