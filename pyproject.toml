@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "buylist-watch"
+version = "0.1.0"
+description = "カードショップの買取表を定期取得して、価格の変化と店ごとの差を記録する"
+requires-python = ">=3.10"
+
+[project.scripts]
+buylist-watch = "buylist_watch.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

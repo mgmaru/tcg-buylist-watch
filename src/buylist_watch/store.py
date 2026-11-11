@@ -1,0 +1,129 @@
+"""取得結果の保存。
+
+data/<店>/latest.csv        最新の全件（毎回上書き）
+data/<店>/changes/<日付>.csv 前回から変わった行だけ
+data/<店>/meta.json         取得日時と件数
+
+全件を日付ごとに残すとリポジトリがすぐ大きくなるので、履歴は差分だけにする。
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+from collections.abc import Iterable
+from dataclasses import asdict
+from pathlib import Path
+
+from .models import CSV_FIELDS, Price
+
+CHANGE_FIELDS = ["change", "item_id", "name", "variant", "set_code", "number", "old_buy", "new_buy", "old_sell", "new_sell"]
+
+
+def _sort_key(p: Price):
+    return (0, int(p.item_id), "") if p.item_id.isdigit() else (1, 0, p.item_id)
+
+
+def dedupe(prices: Iterable[Price]) -> list[Price]:
+    """同じ item_id は最初の1件だけ残して、順番を固定する。"""
+    seen: dict[str, Price] = {}
+    for p in prices:
+        seen.setdefault(p.item_id, p)
+    return sorted(seen.values(), key=_sort_key)
+
+
+def read_latest(path: Path) -> list[Price]:
+    if not path.exists():
+        return []
+    with path.open(encoding="utf-8", newline="") as f:
+        return [
+            Price(
+                item_id=r["item_id"],
+                name=r["name"],
+                variant=r["variant"],
+                set_code=r["set_code"],
+                number=r["number"],
+                rarity=r["rarity"],
+                buy_price=int(r["buy_price"] or 0),
+                sell_price=int(r["sell_price"]) if r["sell_price"] else None,
+                source_updated_at=r["source_updated_at"],
+            )
+            for r in csv.DictReader(f)
+        ]
+
+
+def write_latest(path: Path, prices: list[Price]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=CSV_FIELDS, lineterminator="\n")
+        w.writeheader()
+        for p in prices:
+            row = asdict(p)
+            row["sell_price"] = "" if p.sell_price is None else p.sell_price
+            w.writerow(row)
+
+
+def diff(old: list[Price], new: list[Price], removals: bool = True) -> list[dict]:
+    """前回と今回を比べて、変わった行を返す。
+
+    change は new（新規）/ removed（掲載終了）/ up / down（買取価格の上下）/ sell（販売価格だけ変化）。
+    一部のページだけ取得したときは removals=False にして、掲載終了の誤判定を防ぐ。
+    """
+    before = {p.item_id: p for p in old}
+    after = {p.item_id: p for p in new}
+    out = []
+
+    def row(change: str, p: Price, o: Price | None, n: Price | None) -> dict:
+        return {
+            "change": change,
+            "item_id": p.item_id,
+            "name": p.name,
+            "variant": p.variant,
+            "set_code": p.set_code,
+            "number": p.number,
+            "old_buy": "" if o is None else o.buy_price,
+            "new_buy": "" if n is None else n.buy_price,
+            "old_sell": "" if o is None or o.sell_price is None else o.sell_price,
+            "new_sell": "" if n is None or n.sell_price is None else n.sell_price,
+        }
+
+    for item_id, n in after.items():
+        o = before.get(item_id)
+        if o is None:
+            out.append(row("new", n, None, n))
+        elif n.buy_price != o.buy_price:
+            out.append(row("up" if n.buy_price > o.buy_price else "down", n, o, n))
+        elif n.sell_price != o.sell_price:
+            out.append(row("sell", n, o, n))
+    if removals:
+        for item_id, o in before.items():
+            if item_id not in after:
+                out.append(row("removed", o, o, None))
+    return out
+
+
+def save(data_dir: Path, source: str, prices: Iterable[Price], fetched_at: str, partial: bool = False) -> dict:
+    """保存して、件数と変化の数を返す。partial は一部だけ取得した試し実行のとき True。"""
+    src_dir = data_dir / source
+    latest = src_dir / "latest.csv"
+    new = dedupe(prices)
+    if not new:
+        raise ValueError(f"{source}: 1件も取得できませんでした。前回のデータは残します")
+    old = read_latest(latest)
+    changes = diff(old, new, removals=not partial) if old else []
+    if partial and old:
+        # 試し実行では、取得しなかった行を前回のまま残す
+        merged = {p.item_id: p for p in old}
+        merged.update({p.item_id: p for p in new})
+        new = dedupe(merged.values())
+    write_latest(latest, new)
+    if changes:
+        path = src_dir / "changes" / f"{fetched_at[:10]}.csv"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=CHANGE_FIELDS, lineterminator="\n")
+            w.writeheader()
+            w.writerows(changes)
+    meta = {"source": source, "fetched_at": fetched_at, "count": len(new), "changes": len(changes), "partial": partial}
+    (src_dir / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return meta

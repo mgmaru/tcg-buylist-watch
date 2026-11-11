@@ -1,0 +1,46 @@
+name: fetch
+
+on:
+  schedule:
+    - cron: "17 20 * * *" # 毎日 5:17（日本時間）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test
+        run: python -m unittest discover -s tests
+      - name: Fetch
+        id: fetch
+        continue-on-error: true
+        run: python -m buylist_watch fetch
+      - name: Compare
+        continue-on-error: true
+        run: python -m buylist_watch compare
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data reports
+          git diff --cached --quiet || git commit -m "data: $(TZ=Asia/Tokyo date +%F) の買取表"
+          git push
+      - name: Report a failed source
+        if: steps.fetch.outcome == 'failure'
+        run: |
+          echo "取得に失敗した店があります。Fetch のログを確認してください"
+          exit 1
