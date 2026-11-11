@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from buylist_watch import compare, store
+from buylist_watch import compare, site, store
 from buylist_watch.models import Price
 from buylist_watch.sources import cardrush, hareruya2
 
@@ -107,6 +107,35 @@ class CompareTest(unittest.TestCase):
 
     def test_fullwidth_and_spaces_match(self):
         self.assertEqual(compare.norm("ＭミュウツーＥＸ "), "MミュウツーEX")
+
+
+class SiteTest(unittest.TestCase):
+    def test_build_data_has_items_movers_and_history(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            day1 = [price("1", name="スターミー", number="005/016", buy=20000), price("2", buy=500), price("3", buy=9000)]
+            day2 = [price("1", name="スターミー", number="005/016", buy=50000), price("2", buy=600)]
+            store.save(data, "cardrush", day1, "2026-11-10T05:00:00+09:00")
+            store.save(data, "cardrush", day2, "2026-11-11T05:00:00+09:00")
+            store.save(data, "hareruya2", [price("9", name="スターミー", number="005/016", buy=0, sell=30000)],
+                       "2026-11-11T05:00:00+09:00")
+            out = site.build_data(data, min_buy=1000)
+            self.assertEqual([i[1] for i in out["items"]], ["1"])  # 買取が少額の行は載せない
+            kinds = {(m[3], m[2]) for m in out["movers"]}
+            self.assertEqual(kinds, {("スターミー", "up"), ("ゴンベ", "removed")})  # 少額の変化は載せない
+            self.assertEqual(out["history"], {"0:1": [["", 20000], ["2026-11-11", 50000]]})
+            self.assertEqual(out["cross"][0][10], 20000)
+            self.assertEqual(out["generated_at"], "2026-11-11T05:00:00+09:00")
+
+    def test_build_copies_page_and_writes_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "web").mkdir()
+            (root / "web" / "index.html").write_text("<!DOCTYPE html>", encoding="utf-8")
+            store.save(root / "data", "cardrush", [price("1")], "2026-11-11T05:00:00+09:00")
+            site.build(root / "data", root / "web", root / "_site")
+            self.assertTrue((root / "_site" / "index.html").exists())
+            self.assertEqual(json.loads((root / "_site" / "data.json").read_text(encoding="utf-8"))["shops"][0]["count"], 1)
 
 
 if __name__ == "__main__":
