@@ -95,7 +95,10 @@ svg.chart{width:100%;height:auto;display:block}
 .quick a:first-child{border-left:0}
 .quick button[aria-pressed=true]{color:var(--warn)}
 .detail{border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
-.recent{display:flex;flex-wrap:wrap;gap:6px}
+.recent-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-bottom:4px}
+.recent-head button{font-size:12px;font-weight:500;min-height:30px;padding:3px 10px}
+.recent{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.recent .chip{flex:none;white-space:nowrap}
 details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
 .stamp{margin-top:8px;font-size:13px;color:var(--muted)}
 .stamp-title{font-size:12px;margin-bottom:4px}
@@ -125,7 +128,10 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
       <label for="q" class="note" style="margin-bottom:4px">カード名か型番を入れる（例：ゲンガー 042/090、042/090 だけでも可）</label>
       <input type="search" id="q" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" placeholder="ゲンガー 042/090">
     </div>
-    <div class="recent" id="recent" aria-label="最近調べたカード"></div>
+    <div id="recent-box" hidden>
+      <div class="recent-head"><span>最近調べたカード（5件まで。古いものから消えます）</span><button type="button" id="recent-clear">消す</button></div>
+      <div class="recent" id="recent"></div>
+    </div>
     <p class="note" id="check-info"></p>
     <div class="list" id="cards"></div>
     <button type="button" id="more" hidden>さらに表示</button>
@@ -175,14 +181,16 @@ function shopName(i){var s=DATA.shops[i];return SHOP_LABEL[s.id]||s.id;}
 
 var prices=load("checker.prices",{});
 var pins=load("checker.pins",[]);
-var recent=load("checker.recent",[]);
+var RECENT_MAX=5;
+var recent=load("checker.recent",[]).slice(0,RECENT_MAX);
 function searchWord(g){return g.name+(g.number?" "+g.number:"");}
 function remember(g){
   var w=searchWord(g);
-  recent=[w].concat(recent.filter(function(x){return x!==w;})).slice(0,8);
+  recent=[w].concat(recent.filter(function(x){return x!==w;})).slice(0,RECENT_MAX);
   save("checker.recent",recent);renderRecent();
 }
 function renderRecent(){
+  $("recent-box").hidden=!recent.length;
   $("recent").innerHTML=recent.map(function(w){return '<button type="button" class="chip" data-q="'+esc(w)+'">'+esc(w)+'</button>';}).join("");
 }
 var settings=load("checker.settings",{ship:0,kantei:false});
@@ -316,6 +324,7 @@ function renderCheck(){
 $("q").addEventListener("input",function(){shown=30;renderCheck();});
 $("more").addEventListener("click",function(){shown+=30;renderCheck();});
 $("q").addEventListener("focus",function(){this.select();});
+$("recent-clear").addEventListener("click",function(){recent=[];save("checker.recent",recent);renderRecent();});
 $("recent").addEventListener("click",function(e){
   var b=e.target.closest("button");if(!b)return;
   $("q").value=b.dataset.q;shown=30;renderCheck();
