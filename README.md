@@ -27,6 +27,9 @@ python -m buylist_watch fetch --source cardrush --max-pages 3
 # ある店の買取価格が、別の店の販売価格より高いカードを探す
 python -m buylist_watch compare --min-buy 3000 --top 20
 
+# チェッカーのサイトを _site/ に作る
+python -m buylist_watch site
+
 # テスト
 python -m unittest discover -s tests
 ```
@@ -49,9 +52,23 @@ reports/cross_shop.csv        店をまたいだ比較の結果
 
 全件を毎日残すとリポジトリがすぐ大きくなるので、履歴は差分だけにしています。
 
+## チェッカー（GitHub Pages）
+
+`web/index.html` が画面で、`site` コマンドが `data/` から `data.json` を作ります。3つの表示があります。
+
+- **チェック**：カード名や型番で探して、店ごとの買取価格、仕入れの上限、出品価格を入れたときの利益、買取価格の推移を見る
+- **値動き**：直近7日で買取価格が上がった・下がった・掲載が終わった・新しく載ったカード（買取3,000円以上）
+- **店の差**：ある店の買取価格が、別の店の販売価格より高い組み合わせ
+
+仕入れの上限と利益は、状態Aを100%として A-は56%、Bは20% で買い取られる想定です。仮の比率なので、実際の査定とは違うことがあります。出品価格の入力はブラウザにだけ保存されます。
+
+載せるのは買取1,000円以上のカードだけです。
+
 ## 定期実行
 
-`.github/workflows/fetch.yml` が毎日 5:17（日本時間）に取得して、結果をコミットします。Actions の画面から手動でも実行できます。
+`.github/workflows/fetch.yml` が毎日 5:17（日本時間）に取得して結果をコミットし、チェッカーを GitHub Pages に公開します。Actions の画面から手動でも実行できます。
+
+Pages を使うには、リポジトリの Settings → Pages で Source を「GitHub Actions」にしてください。非公開リポジトリで Pages を使うには、GitHub の有料プランが必要です。公開したページは、URLを知っていれば誰でも見られます。
 
 ## 比較結果を読むときの注意
 

@@ -6,7 +6,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import compare, store
+from . import compare, site, store
 from .http import Fetcher
 from .sources import SOURCES
 
@@ -53,6 +53,12 @@ def cmd_compare(args) -> int:
     return 0
 
 
+def cmd_site(args) -> int:
+    data = site.build(Path(args.data_dir), Path(args.web_dir), Path(args.out))
+    print(f"{args.out} にサイトを作りました。カード {len(data['items'])}件、値動き {len(data['movers'])}件、店の差 {len(data['cross'])}件")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="buylist-watch", description="カードショップの買取表を取得して比べる")
     parser.add_argument("--data-dir", default="data")
@@ -69,6 +75,11 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--top", type=int, default=20)
     c.add_argument("--out", default="reports/cross_shop.csv")
     c.set_defaults(func=cmd_compare)
+
+    s = sub.add_parser("site", help="チェッカーの静的サイトを作る")
+    s.add_argument("--web-dir", default="web")
+    s.add_argument("--out", default="_site")
+    s.set_defaults(func=cmd_site)
 
     args = parser.parse_args(argv)
     return args.func(args)
