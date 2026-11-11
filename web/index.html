@@ -76,6 +76,24 @@ svg.chart{width:100%;height:auto;display:block}
 .chart-area{fill:var(--accent);opacity:.12}
 .chart-dot{fill:var(--accent)}
 .chart-text{fill:var(--muted);font-size:10px;font-family:var(--font-num)}
+.searchbar{position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0 8px;margin:-6px 0 -4px}
+.searchbar input{font-size:17px;min-height:48px;background:var(--surface);border-width:2px}
+.searchbar input:focus{border-color:var(--accent);outline:none}
+.hit{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:10px;overflow:hidden}
+.hit.good{border-left-color:var(--good)} .hit.warn{border-left-color:var(--warn)} .hit.bad{border-left-color:var(--bad)}
+.hit-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;width:100%;text-align:left;border:0;border-radius:0;background:none;padding:10px 12px 4px;min-height:0;font-weight:500}
+.hit-name{font-weight:700;font-size:16px;line-height:1.3}
+.hit-buy{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:700;font-size:18px;white-space:nowrap;text-align:right}
+.hit-buy small{display:block;font-size:10px;font-weight:500;color:var(--muted);font-family:var(--font-body)}
+.hit-limits{padding:0 12px 8px;font-size:13px;color:var(--muted)}
+.hit-limits b{color:var(--ink);font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.quick{display:grid;grid-template-columns:1fr 1fr 1fr 44px;border-top:1px solid var(--line)}
+.quick a,.quick button{display:flex;align-items:center;justify-content:center;text-align:center;min-height:46px;padding:4px 2px;font-size:13px;font-weight:700;line-height:1.2;text-decoration:none;color:var(--accent);background:none;border:0;border-left:1px solid var(--line);border-radius:0}
+.quick a:first-child{border-left:0}
+.quick button[aria-pressed=true]{color:var(--warn)}
+.detail{border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.recent{display:flex;flex-wrap:wrap;gap:6px}
+details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
 [hidden]{display:none !important}
 </style>
 </head>
@@ -92,9 +110,16 @@ svg.chart{width:100%;height:auto;display:block}
   </nav>
 
   <main id="view-check" class="list">
-    <section class="panel">
-      <label for="q">カード名・型番で探す（例：ゲンガー 042/090）</label>
-      <input type="search" id="q" autocomplete="off" placeholder="ゲンガー 042/090">
+    <div class="searchbar">
+      <label for="q" class="note" style="margin-bottom:4px">カード名か型番を入れる（例：ゲンガー 042/090、042/090 だけでも可）</label>
+      <input type="search" id="q" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" placeholder="ゲンガー 042/090">
+    </div>
+    <div class="recent" id="recent" aria-label="最近調べたカード"></div>
+    <p class="note" id="check-info"></p>
+    <div class="list" id="cards"></div>
+    <button type="button" id="more" hidden>さらに表示</button>
+    <details class="panel">
+      <summary>費用と計算の設定</summary>
       <div class="grid2" style="margin-top:10px">
         <div>
           <label for="s-ship">店への送料・交通費（円）</label>
@@ -104,11 +129,8 @@ svg.chart{width:100%;height:auto;display:block}
           <label class="check-row" for="s-kantei"><input type="checkbox" id="s-kantei"> あんしん鑑定（1,700円）</label>
         </div>
       </div>
-      <p class="note" style="margin-top:8px">仕入れの上限は、状態Aを100%として A-は56%、Bは20% で買い取られる想定です。仮の比率なので、実際の査定とは違うことがあります。</p>
-    </section>
-    <p class="note" id="check-info"></p>
-    <div class="list" id="cards"></div>
-    <button type="button" id="more" hidden>さらに表示</button>
+      <p class="note" style="margin-top:8px">仕入れの上限は、状態Aを100%として A-は56%、Bは20% で買い取られる想定です。仮の比率なので、実際の査定とは違うことがあります。上限からは、ここで入れた費用を引いています。</p>
+    </details>
   </main>
 
   <main id="view-movers" class="list" hidden>
@@ -141,6 +163,17 @@ function signed(n){return '<b class="num '+(n>=0?"pos":"neg")+'">'+(n>=0?"+":"")
 function shopName(i){var s=DATA.shops[i];return SHOP_LABEL[s.id]||s.id;}
 
 var prices=load("checker.prices",{});
+var pins=load("checker.pins",[]);
+var recent=load("checker.recent",[]);
+function searchWord(g){return g.name+(g.number?" "+g.number:"");}
+function remember(g){
+  var w=searchWord(g);
+  recent=[w].concat(recent.filter(function(x){return x!==w;})).slice(0,8);
+  save("checker.recent",recent);renderRecent();
+}
+function renderRecent(){
+  $("recent").innerHTML=recent.map(function(w){return '<button type="button" class="chip" data-q="'+esc(w)+'">'+esc(w)+'</button>';}).join("");
+}
 var settings=load("checker.settings",{ship:0,kantei:false});
 function extra(){return (Number(settings.ship)||0)+(settings.kantei?1700:0);}
 
@@ -196,43 +229,92 @@ function chart(points){
     '<text class="chart-text" x="'+(W-padX)+'" y="'+(H-3)+'" text-anchor="end">'+esc(points[last][0])+'</text></svg>';
 }
 
-function cardHtml(g,idx){
-  var o=outs(g);
-  var many=g.entries.length>1,buy=buyOf(g);
+/* 売れた価格と出品を開くリンク。どれも人が画面で見るためのもので、自動では取得しない */
+function marketLinks(g){
+  var kw=encodeURIComponent(searchWord(g));
+  return {
+    onSale:"https://jp.mercari.com/search?keyword="+kw+"&status=on_sale&sort=created_time&order=desc",
+    sold:"https://jp.mercari.com/search?keyword="+kw+"&status=sold_out&sort=created_time&order=desc",
+    yahoo:"https://auctions.yahoo.co.jp/closedsearch/closedsearch?p="+kw+"&va="+kw+"&b=1&n=50",
+    yahooFlea:"https://paypayfleamarket.yahoo.co.jp/search/"+kw+"?open=1",
+    rush:"https://cardrush.media/pokemon/buying_prices?name="+encodeURIComponent(g.name)
+  };
+}
+function detailHtml(g,idx){
+  var o=outs(g),many=g.entries.length>1,buy=buyOf(g),L=marketLinks(g);
   var rows=g.entries.map(function(e,j){
-    return '<tr><td>'+(many?'<label class="check-row"><input type="radio" class="js-sel" name="e'+idx+'" value="'+j+'"'+((g.sel||0)===j?" checked":"")+'> '+esc(shopName(e[0]))+'</label>':esc(shopName(e[0])))+'<span class="note"><span class="note">'+esc([e[4],e[3]].filter(Boolean).join("・")||"―")+'</span></td>'+
+    return '<tr><td>'+(many?'<label class="check-row"><input type="radio" class="js-sel" name="e'+idx+'" value="'+j+'"'+((g.sel||0)===j?" checked":"")+'> '+esc(shopName(e[0]))+'</label>':esc(shopName(e[0])))+'<span class="note">'+esc([e[4],e[3]].filter(Boolean).join("・")||"―")+'</span></td>'+
       '<td class="num">'+yen(e[7])+'</td><td class="num">'+(e[8]?yen(e[8]):"―")+'</td></tr>';
   }).join("");
   var hist="";
   for(var i=0;i<g.entries.length&&!hist;i++){hist=chart(DATA.history[g.entries[i][0]+":"+g.entries[i][1]]);}
-  var kw=encodeURIComponent(g.name+(g.number?" "+g.number:""));
-  return '<article class="card '+o.cls+'" data-i="'+idx+'">'+
-    '<div><div class="card-name">'+esc(g.name)+'</div><div class="card-model num">'+esc(g.number||"型番なし")+'</div></div>'+
+  return '<div class="detail">'+
     '<table><thead><tr><th>店</th><th>買取</th><th>販売</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    '<div><label>仕入れの上限（送料・鑑定料を引いたあと、この値段以下なら黒字）</label><div class="figs">'+
+    (many?'<p class="note">同じ型番でも、店や仕様（1ED・再販・色違いなど）で買取価格が違います。出品に合う行を選ぶと、上限と利益がその買取価格で計算されます。</p>':'')+
+    '<div class="figs">'+
       '<div class="fig"><span>状態Bでも黒字</span><b>'+limit(buy,RATE.b)+'</b></div>'+
       '<div class="fig"><span>状態A-なら黒字</span><b>'+limit(buy,RATE.am)+'</b></div>'+
-      '<div class="fig"><span>状態Aなら黒字</span><b>'+limit(buy,RATE.a)+'</b></div></div></div>'+
+      '<div class="fig"><span>状態Aなら黒字</span><b>'+limit(buy,RATE.a)+'</b></div></div>'+
     '<div class="card-in"><div><label for="p'+idx+'">見つけた出品の価格（円）</label><input type="number" inputmode="numeric" min="0" id="p'+idx+'" class="js-price" value="'+esc(prices[g.key]===undefined?"":prices[g.key])+'"></div>'+
       '<div class="outs js-outs">'+o.html+'</div></div>'+
     (hist?'<div><label>買取価格の推移</label>'+hist+'</div>':'')+
-    (many?'<p class="note">同じ型番でも、店や仕様（1ED・再販・色違いなど）で買取価格が違います。出品に合う行を選ぶと、上限と利益がその買取価格で計算されます。</p>':'')+
-    '<div class="links"><a href="https://jp.mercari.com/search?keyword='+kw+'&status=on_sale" target="_blank" rel="noopener">メルカリで型番検索</a>'+
-      '<a href="https://cardrush.media/pokemon/buying_prices?name='+encodeURIComponent(g.name)+'" target="_blank" rel="noopener">カードラッシュの買取表</a></div>'+
+    '<div class="links"><a class="js-link" href="'+L.yahooFlea+'" target="_blank" rel="noopener">Yahoo!フリマの出品</a>'+
+      '<a class="js-link" href="'+L.rush+'" target="_blank" rel="noopener">カードラッシュの買取表</a></div>'+
+    '</div>';
+}
+function cardHtml(g,idx){
+  var o=outs(g),buy=buyOf(g),L=marketLinks(g),pinned=pins.indexOf(g.key)>=0;
+  var shops=g.entries.length>1?g.entries.length+"件の買取":shopName(g.entries[0][0]);
+  return '<article class="hit '+o.cls+'" data-i="'+idx+'">'+
+    '<button type="button" class="hit-head js-toggle" aria-expanded="'+(g.open?"true":"false")+'">'+
+      '<span><span class="hit-name">'+esc(g.name)+'</span><br><span class="card-model num">'+esc(g.number||"型番なし")+' ・ '+esc(shops)+'</span></span>'+
+      '<span class="hit-buy"><small>買取（状態A）</small>'+yen(buy)+'</span></button>'+
+    '<div class="hit-limits">仕入れの上限　Bでも黒字 <b>'+limit(buy,RATE.b)+'</b>　A-なら <b>'+limit(buy,RATE.am)+'</b></div>'+
+    '<div class="quick">'+
+      '<a class="js-link" href="'+L.onSale+'" target="_blank" rel="noopener">メルカリ<br>新着</a>'+
+      '<a class="js-link" href="'+L.sold+'" target="_blank" rel="noopener">メルカリ<br>売り切れ</a>'+
+      '<a class="js-link" href="'+L.yahoo+'" target="_blank" rel="noopener">ヤフオク<br>落札相場</a>'+
+      '<button type="button" class="js-pin" aria-pressed="'+pinned+'" aria-label="'+(pinned?"ウォッチから外す":"ウォッチに入れる")+'">'+(pinned?"★":"☆")+'</button></div>'+
+    (g.open?detailHtml(g,idx):'')+
     '</article>';
 }
 
 var matched=[];
 function renderCheck(){
-  var tokens=$("q").value.trim().split(/\s+/).filter(Boolean).map(norm);
-  matched=tokens.length?GROUPS.filter(function(g){return tokens.every(function(t){return g.hay.indexOf(t)>=0;});}):GROUPS;
-  $("check-info").textContent=tokens.length?matched.length+"件見つかりました。買取価格の高い順です。":"買取"+yen(DATA.min_buy)+"以上の"+GROUPS.length+"種類を、買取価格の高い順に表示しています。";
+  var tokens=$("q").value.trim().split(/\s+/).filter(Boolean).map(norm),info;
+  if(tokens.length){
+    matched=GROUPS.filter(function(g){return tokens.every(function(t){return g.hay.indexOf(t)>=0;});});
+    info=matched.length+"件。買取価格の高い順です。カードを押すと、店ごとの価格と利益の計算が開きます。";
+    if(matched.length===1)matched[0].open=true;
+  }else{
+    var pinned=GROUPS.filter(function(g){return pins.indexOf(g.key)>=0;});
+    matched=pinned.length?pinned:GROUPS;
+    info=pinned.length?"ウォッチ中の"+pinned.length+"種類です。☆を押すと出し入れできます。":"買取"+yen(DATA.min_buy)+"以上の"+GROUPS.length+"種類を、買取価格の高い順に表示しています。☆を押したカードは、次からここに並びます。";
+  }
+  $("check-info").textContent=info;
   var slice=matched.slice(0,shown);
   $("cards").innerHTML=slice.length?slice.map(cardHtml).join(""):'<p class="empty">見つかりませんでした。型番（例：042/090）だけで試してください。買取'+yen(DATA.min_buy)+'未満のカードは載っていません。</p>';
   $("more").hidden=matched.length<=shown;
 }
 $("q").addEventListener("input",function(){shown=30;renderCheck();});
 $("more").addEventListener("click",function(){shown+=30;renderCheck();});
+$("q").addEventListener("focus",function(){this.select();});
+$("recent").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  $("q").value=b.dataset.q;shown=30;renderCheck();
+});
+$("cards").addEventListener("click",function(e){
+  var art=e.target.closest("article");if(!art)return;
+  var i=Number(art.dataset.i),g=matched[i];
+  if(e.target.closest(".js-link")){remember(g);return;}
+  if(e.target.closest(".js-pin")){
+    var at=pins.indexOf(g.key);if(at>=0)pins.splice(at,1);else pins.push(g.key);
+    save("checker.pins",pins);
+    if($("q").value.trim())art.outerHTML=cardHtml(g,i);else renderCheck();
+    return;
+  }
+  if(e.target.closest(".js-toggle")){g.open=!g.open;if(g.open)remember(g);art.outerHTML=cardHtml(g,i);}
+});
 $("cards").addEventListener("change",function(e){
   if(!e.target.classList.contains("js-sel"))return;
   var art=e.target.closest("article"),i=Number(art.dataset.i),g=matched[i];
@@ -243,7 +325,7 @@ $("cards").addEventListener("input",function(e){
   var art=e.target.closest("article"),g=matched[Number(art.dataset.i)];
   if(e.target.value==="")delete prices[g.key];else prices[g.key]=e.target.value;
   save("checker.prices",prices);
-  var o=outs(g);art.className="card "+o.cls;art.querySelector(".js-outs").innerHTML=o.html;
+  var o=outs(g);art.className="hit "+o.cls;art.querySelector(".js-outs").innerHTML=o.html;
 });
 function onSettings(){settings.ship=Number($("s-ship").value)||0;settings.kantei=$("s-kantei").checked;save("checker.settings",settings);renderCheck();}
 $("s-ship").addEventListener("input",onSettings);$("s-kantei").addEventListener("change",onSettings);
@@ -292,9 +374,11 @@ window.addEventListener("hashchange",route);
 
 $("s-ship").value=settings.ship||0;$("s-kantei").checked=!!settings.kantei;
 route();
+if((location.hash||"#check")==="#check")$("q").focus();
 fetch("data.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();}).then(function(d){
-  DATA=d;buildGroups();
-  $("stamp").textContent="買取価格の取得日時："+d.shops.filter(function(s){return s.count;}).map(function(s){return (SHOP_LABEL[s.id]||s.id)+" "+s.fetched_at.slice(0,16).replace("T"," ");}).join("、")+"。毎朝更新されます。";
+  DATA=d;buildGroups();renderRecent();
+  var preset=new URLSearchParams(location.search).get("q");if(preset)$("q").value=preset;
+  $("stamp").textContent="買取価格の取得日時："+d.shops.filter(function(s){return s.count;}).map(function(s){return (SHOP_LABEL[s.id]||s.id)+" "+s.fetched_at.slice(0,16).replace("T"," ");}).join("、")+"。";
   if(!d.movers.some(function(m){return m[2]==="up";}))moverKind="all";
   renderCheck();renderMovers();renderCross();
 }).catch(function(){
