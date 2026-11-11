@@ -5,7 +5,7 @@ from pathlib import Path
 
 from buylist_watch import compare, site, store
 from buylist_watch.models import Price
-from buylist_watch.sources import cardrush, hareruya2
+from buylist_watch.sources import cardrush, hareruya2, yuyutei
 
 
 def price(item_id="1", name="ゴンベ", number="069/090", buy=60000, sell=None, variant="", set_code="DPt2-B"):
@@ -57,6 +57,56 @@ class Hareruya2Test(unittest.TestCase):
         prices = hareruya2.parse(raw)
         self.assertEqual((prices[0].sell_price, prices[0].buy_price), (30000, 0))
         self.assertEqual(prices[1].number, "")
+
+
+YUYU_CARD = """<div class="card-product position-relative mt-4 {cls}"><a
+href="https://yuyu-tei.jp/{kind}/poc/card/{ver}/{cid}"><div class="position-relative product-img">
+<img src="x.jpg" alt="{number} {rarity} {name}" class="card img-fluid"/></div></a>
+<span class="d-block border border-dark p-1 w-100 text-center my-2">{number}</span>
+<a href="https://yuyu-tei.jp/{kind}/poc/card/{ver}/{cid}"><h4 class="text-primary fw-bold">{name}</h4></a>
+<strong class="d-block text-end">
+{price} 円
+</strong></div>"""
+
+
+def yuyu_page(kind, cards, last=1):
+    head = '<input type="checkbox" class="versPhone" name="vers[]" value="xy04" id="a">\n<label for="a">[XY4] 拡張パック</label>'
+    pager = "".join(f'<a href="?search_word=&page={n}">{n}</a>' for n in range(1, last + 1))
+    body = "".join(YUYU_CARD.format(kind=kind, cls="sold-out" if p.endswith("x") else "", ver=v, cid=c, number=n, rarity=r, name=nm,
+                                    price=p.rstrip("x")) for v, c, n, r, nm, p in cards)
+    return (head + body + pager).encode("utf-8")
+
+
+class YuyuteiTest(unittest.TestCase):
+    def test_split_name(self):
+        self.assertEqual(yuyutei.split_name("トゲデマル(番号無し)"), ("トゲデマル", "番号無し"))
+        self.assertEqual(yuyutei.split_name("MゲンガーEX"), ("MゲンガーEX", ""))
+
+    def test_parse_page(self):
+        rows, last, labels = yuyutei.parse_page(yuyu_page("buy", [("xy04", "10097", "097/088", "UR", "MゲンガーEX", "88,000")], last=3).decode())
+        self.assertEqual(rows, [{"ver": "xy04", "cid": "10097", "number": "097/088", "name": "MゲンガーEX", "rarity": "UR", "price": 88000, "in_stock": True}])
+        self.assertEqual((last, labels), (3, {"xy04": "XY4"}))
+
+    def test_fetch_joins_buy_and_sell(self):
+        pages = {
+            yuyutei.BUY_URL.format(page=1): yuyu_page("buy", [("xy04", "10097", "097/088", "UR", "MゲンガーEX", "88,000")]),
+            yuyutei.SELL_URL.format(page=1): yuyu_page("sell", [
+                ("xy04", "10097", "097/088", "UR", "MゲンガーEX", "128,000"),
+                ("smp", "10011", "011/SM-P", "PROMO", "トゲデマル(番号無し)", "2,480"),
+                ("smp", "10012", "012/SM-P", "PROMO", "バクガメス", "998,000x"),  # 末尾の x は在庫切れの印
+            ]),
+        }
+
+        class Fake:
+            def get(self, url):
+                return pages[url]
+
+        got = list(yuyutei.fetch(Fake()))
+        self.assertEqual([(p.item_id, p.name, p.variant, p.set_code, p.rarity, p.buy_price, p.sell_price) for p in got], [
+            ("xy04/10097", "MゲンガーEX", "", "XY4", "UR", 88000, 128000),
+            ("smp/10011", "トゲデマル", "番号無し", "smp", "PROMO", 0, 2480),  # 販売だけの商品は買取0円で載せる
+            ("smp/10012", "バクガメス", "", "smp", "PROMO", 0, None),  # 在庫切れの販売価格は記録しない
+        ])
 
 
 class StoreTest(unittest.TestCase):

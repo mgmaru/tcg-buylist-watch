@@ -59,7 +59,7 @@ def build_movers(shop: int, changes: list[tuple[str, list[dict]]], days: int = 7
     return out
 
 
-def build_data(data_dir: Path, min_buy: int = 1000, cross_limit: int = 1000) -> dict:
+def build_data(data_dir: Path, min_buy: int = 1000, cross_limit: int = 2000) -> dict:
     shops, items, movers, history = [], [], [], {}
     loaded = {}
     for name in SOURCES:

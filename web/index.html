@@ -102,7 +102,7 @@ svg.chart{width:100%;height:auto;display:block}
 details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
 .stamp{margin-top:8px;font-size:13px;color:var(--muted)}
 .stamp-title{font-size:12px;margin-bottom:4px}
-.stamp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stamp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px}
 .stamp-item{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px;line-height:1.35}
 .stamp-item span{display:block;font-size:12px;color:var(--muted)}
 .stamp-item b{display:block;font-size:17px;color:var(--ink);font-family:var(--font-num);font-variant-numeric:tabular-nums}
@@ -171,7 +171,7 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
 <script>
 (function(){
 "use strict";
-var SHOP_LABEL={cardrush:"カードラッシュ",hareruya2:"晴れる屋2"};
+var SHOP_LABEL={cardrush:"カードラッシュ",hareruya2:"晴れる屋2",yuyutei:"遊々亭"};
 var KIND_LABEL={all:"すべて",up:"上がった",down:"下がった",removed:"掲載終了","new":"新しく掲載"};
 var RATE={a:1,am:0.56,b:0.2};
 var DATA=null,GROUPS=[],shown=30,moverKind="up";
@@ -264,7 +264,8 @@ function marketLinks(g){
     yahoo:"https://auctions.yahoo.co.jp/closedsearch/closedsearch?p="+kw+"&va="+kw+"&b=1&n=50",
     yahooFlea:"https://paypayfleamarket.yahoo.co.jp/search/"+kw+"?open=1",
     rush:"https://cardrush.media/pokemon/buying_prices?name="+encodeURIComponent(g.name),
-    hare:"https://www.hareruya2.com/search?q="+kw
+    hare:"https://www.hareruya2.com/search?q="+kw,
+    yuyu:"https://yuyu-tei.jp/buy/poc/s/search?search_word="+encodeURIComponent(g.name)
   };
 }
 function detailHtml(g,idx){
@@ -287,7 +288,8 @@ function detailHtml(g,idx){
     (hist?'<div><label>買取価格の推移</label>'+hist+'</div>':'')+
     '<div class="links"><a class="js-link" href="'+L.yahooFlea+'" target="_blank" rel="noopener">Yahoo!フリマの出品</a>'+
       '<a class="js-link" href="'+L.rush+'" target="_blank" rel="noopener">カードラッシュの買取表</a>'+
-      '<a class="js-link" href="'+L.hare+'" target="_blank" rel="noopener">晴れる屋2で探す</a></div>'+
+      '<a class="js-link" href="'+L.hare+'" target="_blank" rel="noopener">晴れる屋2で探す</a>'+
+      '<a class="js-link" href="'+L.yuyu+'" target="_blank" rel="noopener">遊々亭の買取表</a></div>'+
     '</div>';
 }
 function cardHtml(g,idx){
