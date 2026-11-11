@@ -120,7 +120,8 @@ class SiteTest(unittest.TestCase):
             store.save(data, "hareruya2", [price("9", name="スターミー", number="005/016", buy=0, sell=30000)],
                        "2026-11-11T05:00:00+09:00")
             out = site.build_data(data, min_buy=1000)
-            self.assertEqual([i[1] for i in out["items"]], ["1"])  # 買取が少額の行は載せない
+            # 買取が少額の行は載せない。ただし、他店が買い取っているカードは買取なしの店の行も載せる
+            self.assertEqual([(i[0], i[1], i[7], i[8]) for i in out["items"]], [(0, "1", 50000, 0), (1, "9", 0, 30000)])
             kinds = {(m[3], m[2]) for m in out["movers"]}
             self.assertEqual(kinds, {("スターミー", "up"), ("ゴンベ", "removed")})  # 少額の変化は載せない
             self.assertEqual(out["history"], {"0:1": [["", 20000], ["2026-11-11", 50000]]})
