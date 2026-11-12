@@ -19,9 +19,10 @@ Python 3.10以上で動きます。外部ライブラリは使いません。
 ```sh
 export PYTHONPATH=src
 
-# 全店を取得して data/ に保存（カードラッシュは7分ほどかかります）
+# 全店を同時に取得して data/ に保存（いちばん遅い店に合わせて5〜6分。--jobs 1 で順番に取得）
 python -m buylist_watch fetch
 
+# 件数が前回の7割を下回ったときは保存しません（店側の更新中などを疑うため）。確かめて保存するなら --force
 # 1店だけ、最初の3ページだけ試す
 python -m buylist_watch fetch --source cardrush --max-pages 3
 

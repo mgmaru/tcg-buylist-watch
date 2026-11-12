@@ -160,6 +160,49 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(compare.norm("ＭミュウツーＥＸ "), "MミュウツーEX")
 
 
+class ParallelFetchTest(unittest.TestCase):
+    def test_shops_are_fetched_at_the_same_time_and_one_failure_does_not_stop_the_others(self):
+        import threading
+        from unittest import mock
+
+        from buylist_watch import cli
+
+        gate = threading.Barrier(2, timeout=5)  # 2店が同時に動いていなければ、ここで時間切れになる
+
+        class Good:
+            def __init__(self, item):
+                self.item = item
+
+            def fetch(self, fetcher, max_pages=None):
+                gate.wait()
+                yield price(self.item, buy=1000)
+
+        class Bad:
+            def fetch(self, fetcher, max_pages=None):
+                raise RuntimeError("403")
+                yield
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(cli.SOURCES, {"a": Good("1"), "b": Good("2"), "c": Bad()}, clear=True):
+            code = cli.main(["--data-dir", tmp, "fetch", "--delay", "0"])
+            self.assertEqual(code, 1)  # 1店が失敗したことは終了コードで伝える
+            self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()), ["a", "b"])
+
+
+class ShrinkGuardTest(unittest.TestCase):
+    def test_big_drop_in_count_is_not_saved_unless_forced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            full = [price(str(i), buy=1000) for i in range(10)]
+            store.save(data, "cardrush", full, "2026-11-11T09:00:00+09:00")
+            with self.assertRaises(ValueError):
+                store.save(data, "cardrush", full[:5], "2026-11-12T09:00:00+09:00")
+            self.assertEqual(len(store.read_latest(data / "cardrush" / "latest.csv")), 10)  # 前回のまま
+            self.assertFalse((data / "cardrush" / "changes").exists())
+            store.save(data, "cardrush", full[:8], "2026-11-12T09:00:00+09:00")  # 少しの減少は保存する
+            meta = store.save(data, "cardrush", full[:3], "2026-11-12T12:00:00+09:00", force=True)
+            self.assertEqual(meta["count"], 3)
+
+
 class SameDayTest(unittest.TestCase):
     def test_second_fetch_on_the_same_day_keeps_morning_changes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -181,7 +224,7 @@ class SiteTest(unittest.TestCase):
             day1 = [price("1", name="スターミー", number="005/016", buy=20000), price("2", buy=500), price("3", buy=9000)]
             day2 = [price("1", name="スターミー", number="005/016", buy=50000), price("2", buy=600)]
             store.save(data, "cardrush", day1, "2026-11-10T05:00:00+09:00")
-            store.save(data, "cardrush", day2, "2026-11-11T05:00:00+09:00")
+            store.save(data, "cardrush", day2, "2026-11-11T05:00:00+09:00", force=True)  # 3件から2件への減少を通す
             store.save(data, "hareruya2", [price("9", name="スターミー", number="005/016", buy=0, sell=30000)],
                        "2026-11-11T05:00:00+09:00")
             out = site.build_data(data, min_buy=1000)
