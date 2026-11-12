@@ -152,8 +152,11 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
 
   <main id="view-movers" class="list" hidden>
     <div class="chips" id="mover-chips" role="group" aria-label="値動きの種類"></div>
-    <p class="note">直近7日ぶんの、買取3,000円以上のカードの変化です。買取が急に上がったカードは、フリマの値段がまだ追いついていないことがあります。</p>
+    <div><label>買取価格で絞る</label><div class="chips" id="mover-price" role="group" aria-label="買取価格で絞る"></div></div>
+    <div><label>並べ方</label><div class="chips" id="mover-sort" role="group" aria-label="並べ方"></div></div>
+    <p class="note" id="mover-info"></p>
     <div class="list" id="movers"></div>
+    <button type="button" id="mover-more" hidden>さらに表示</button>
   </main>
 
   <main id="view-shops" class="list" hidden>
@@ -365,21 +368,40 @@ function onSettings(){settings.ship=Number($("s-ship").value)||0;settings.kantei
 $("s-ship").addEventListener("input",onSettings);$("s-kantei").addEventListener("change",onSettings);
 
 /* 値動き */
+var PRICE_STEPS=[[0,"すべて"],[500,"500円以上"],[1000,"1,000円以上"],[3000,"3,000円以上"],[10000,"1万円以上"]];
+var SORT_LABEL={rate:"変化の割合が大きい順",amount:"変化の金額が大きい順"};
+var moverMin=500,moverSort="rate",moverShown=50;  // 数円のカードの動きは割合だけ大きく出るので、最初は500円以上にしておく
+function chips(id,list,current){
+  $(id).innerHTML=list.map(function(x){return '<button type="button" class="chip" data-k="'+x[0]+'" aria-pressed="'+(String(current)===String(x[0]))+'">'+x[1]+'</button>';}).join("");
+}
+function moveRate(m){return m[7]&&m[8]?Math.abs(m[8]-m[7])/m[7]:0;}
 function renderMovers(){
-  $("mover-chips").innerHTML=Object.keys(KIND_LABEL).map(function(k){
-    return '<button type="button" class="chip" data-k="'+k+'" aria-pressed="'+(moverKind===k)+'">'+KIND_LABEL[k]+'</button>';}).join("");
-  var rows=DATA.movers.filter(function(m){return moverKind==="all"||m[2]===moverKind;}).slice(0,200);
-  if(!rows.length){$("movers").innerHTML='<p class="empty">'+(DATA.movers.length?"この種類の値動きはありません。":"まだ値動きの記録がありません。取得を2日以上続けると、ここに変化が出ます。")+'</p>';return;}
+  chips("mover-chips",Object.keys(KIND_LABEL).map(function(k){return [k,KIND_LABEL[k]];}),moverKind);
+  chips("mover-price",PRICE_STEPS,moverMin);
+  chips("mover-sort",Object.keys(SORT_LABEL).map(function(k){return [k,SORT_LABEL[k]];}),moverSort);
+  var all=DATA.movers.filter(function(m){return (moverKind==="all"||m[2]===moverKind)&&Math.max(m[7],m[8])>=moverMin;});
+  // 新しい日を先に。同じ日の中は選んだ並べ方で
+  all.sort(function(a,b){
+    if(a[0]!==b[0])return a[0]<b[0]?1:-1;
+    return moverSort==="rate"?(moveRate(b)-moveRate(a))||(Math.abs(b[8]-b[7])-Math.abs(a[8]-a[7])):Math.abs(b[8]-b[7])-Math.abs(a[8]-a[7]);
+  });
+  var rows=all.slice(0,moverShown);
+  $("mover-more").hidden=all.length<=moverShown;
+  $("mover-info").textContent=DATA.movers.length?"直近7日ぶんの変化のうち、この条件に当てはまるのは"+all.length+"件です。もっと安いカードの動きも見るときは「すべて」を選んでください。":"";
+  if(!rows.length){$("movers").innerHTML='<p class="empty">'+(DATA.movers.length?"この条件の値動きはありません。":"まだ値動きの記録がありません。取得を2日以上続けると、ここに変化が出ます。")+'</p>';return;}
   $("movers").innerHTML=rows.map(function(m){
     var diff=m[8]-m[7],pct=m[7]?Math.round(diff/m[7]*100):null;
     var body=m[2]==="new"?'新しく掲載 <b class="num">'+yen(m[8])+'</b>':m[2]==="removed"?'掲載終了（前は <span class="num">'+yen(m[7])+'</span>）':
-      '<span class="num">'+yen(m[7])+' → '+yen(m[8])+'</span> '+signed(diff)+(pct!==null?' <span class="note num">'+(pct>=0?"+":"")+pct+'%</span>':'');
+      '<span class="num">'+yen(m[7])+' → '+yen(m[8])+'</span> '+signed(diff)+(pct!==null?' <b class="num '+(pct>=0?"pos":"neg")+'">'+(pct>=0?"+":"")+pct+'%</b>':'');
     return '<div class="row"><div class="row-top"><b>'+esc(m[3])+'</b><span class="note num">'+esc(m[0].slice(5))+'</span></div>'+
       '<span class="note num">'+esc([m[5],m[6],m[4]].filter(Boolean).join(" ・ "))+' ／ '+esc(shopName(m[1]))+'</span><span>'+body+'</span>'+
       '<a href="#check" class="js-open" data-q="'+esc(m[3]+(m[6]?" "+m[6]:""))+'" style="font-size:13px">このカードの買取を調べる</a></div>';
   }).join("");
 }
-$("mover-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverKind=b.dataset.k;renderMovers();});
+$("mover-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverKind=b.dataset.k;moverShown=50;renderMovers();});
+$("mover-price").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverMin=Number(b.dataset.k);moverShown=50;renderMovers();});
+$("mover-sort").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverSort=b.dataset.k;moverShown=50;renderMovers();});
+$("mover-more").addEventListener("click",function(){moverShown+=50;renderMovers();});
 
 /* 店の差 */
 var crossShown=50;

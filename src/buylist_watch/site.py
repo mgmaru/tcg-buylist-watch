@@ -45,17 +45,21 @@ def build_history(changes: list[tuple[str, list[dict]]], max_points: int = 90) -
     return {k: v[-max_points:] for k, v in history.items()}
 
 
-def build_movers(shop: int, changes: list[tuple[str, list[dict]]], days: int = 7, min_price: int = 3000) -> list[list]:
-    """直近の値動き。[日付, 店, 種類, 名前, 仕様, セット, 型番, 前の買取, 今の買取]"""
+def build_movers(shop: int, changes: list[tuple[str, list[dict]]], days: int = 7, min_listing: int = 1000) -> list[list]:
+    """直近の値動き。[日付, 店, 種類, 名前, 仕様, セット, 型番, 前の買取, 今の買取, 店の中の識別子]
+
+    値上げ・値下げは少額でもすべて載せる（安いカードの動きが値上がりの前ぶれになることがある）。
+    掲載の開始・終了は数が多いので、min_listing 円以上のものだけ載せる。
+    """
     out = []
     for date, rows in changes[-days:]:
         for r in rows:
             if r["change"] not in MOVER_KINDS:
                 continue
             old, new = _int(r["old_buy"]) or 0, _int(r["new_buy"]) or 0
-            if max(old, new) < min_price:
+            if r["change"] in ("new", "removed") and max(old, new) < min_listing:
                 continue
-            out.append([date, shop, r["change"], r["name"], r["variant"], r["set_code"], r["number"], old, new])
+            out.append([date, shop, r["change"], r["name"], r["variant"], r["set_code"], r["number"], old, new, r["item_id"]])
     return out
 
 
@@ -75,13 +79,15 @@ def build_data(data_dir: Path, min_buy: int = 1000, cross_limit: int = 2000) -> 
         shops.append({"id": name, "fetched_at": meta.get("fetched_at", ""), "count": len(prices)})
         if not prices:
             continue
+        changes = read_changes(src_dir)
+        shop_movers = build_movers(shop, changes)
+        moved = {m[9] for m in shop_movers}  # 値動きのあったカードは、少額でも調べられるように載せる
         kept = set()
         for p in prices:
-            if p.buy_price >= min_buy or compare.match_key(p) in wanted:
+            if p.buy_price >= min_buy or p.item_id in moved or compare.match_key(p) in wanted:
                 kept.add(p.item_id)
                 items.append([shop, p.item_id, p.name, p.variant, p.set_code, p.number, p.rarity, p.buy_price, p.sell_price or 0])
-        changes = read_changes(src_dir)
-        movers += build_movers(shop, changes)
+        movers += [m[:9] for m in shop_movers]
         for item_id, points in build_history(changes).items():
             if item_id in kept:
                 history[f"{shop}:{item_id}"] = points
