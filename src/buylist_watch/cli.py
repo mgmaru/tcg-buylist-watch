@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -16,18 +17,27 @@ JST = timezone(timedelta(hours=9))
 
 def cmd_fetch(args) -> int:
     names = list(SOURCES) if args.source == "all" else [args.source]
-    fetched_at = datetime.now(JST).isoformat(timespec="seconds")
 
     def one(name: str) -> bool:
         try:
-            # 店ごとに別の Fetcher を持つ。取得の間隔は店ごとに守られる
-            prices = list(SOURCES[name].fetch(Fetcher(delay=args.delay), max_pages=args.max_pages))
-            meta = store.save(Path(args.data_dir), name, prices, fetched_at, partial=args.max_pages is not None, force=args.force)
-            print(f"{name}: {meta['count']}件を保存、前回からの変化 {meta['changes']}件", flush=True)
-            return True
+            for attempt in range(args.shrink_retries + 1):
+                fetched_at = datetime.now(JST).isoformat(timespec="seconds")
+                # 店ごとに別の Fetcher を持つ。取得の間隔は店ごとに守られる
+                prices = list(SOURCES[name].fetch(Fetcher(delay=args.delay), max_pages=args.max_pages))
+                try:
+                    meta = store.save(Path(args.data_dir), name, prices, fetched_at, partial=args.max_pages is not None, force=args.force)
+                except store.ShrinkError as e:
+                    # 店が買取表を入れ替えている途中のことが多い。少し待って取り直す
+                    if attempt == args.shrink_retries:
+                        raise
+                    print(f"{e}。{args.shrink_wait}秒待って取り直します（{attempt + 1}回目）", file=sys.stderr, flush=True)
+                    time.sleep(args.shrink_wait)
+                    continue
+                print(f"{name}: {meta['count']}件を保存、前回からの変化 {meta['changes']}件", flush=True)
+                return True
         except Exception as e:  # 1店の失敗でほかの店を止めない
             print(f"{name}: 失敗しました: {e}", file=sys.stderr, flush=True)
-            return False
+        return False
 
     # 店は別々のサイトなので同時に取りに行く。保存先も店ごとに分かれているのでぶつからない
     with ThreadPoolExecutor(max_workers=max(1, min(args.jobs, len(names)))) as pool:
@@ -75,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument("--max-pages", type=int, default=None, help="試し実行用。ページ数を制限する")
     f.add_argument("--delay", type=float, default=1.5, help="1回の取得ごとに空ける秒数（店ごと）")
     f.add_argument("--force", action="store_true", help="件数が前回から大きく減っていても保存する")
+    f.add_argument("--shrink-retries", type=int, default=2, help="件数が急に減ったとき、待って取り直す回数")
+    f.add_argument("--shrink-wait", type=float, default=600, help="取り直すまで待つ秒数")
     f.add_argument("--jobs", type=int, default=len(SOURCES), help="同時に取得する店の数。1にすると順番に取得する")
     f.set_defaults(func=cmd_fetch)
 
