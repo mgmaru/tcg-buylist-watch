@@ -38,7 +38,9 @@ label{font-size:12px;color:var(--muted);display:block;margin-bottom:3px}
 input[type=text],input[type=number],input[type=search]{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 10px;min-height:42px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 button{font:inherit;font-weight:700;cursor:pointer;border-radius:7px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 12px;min-height:40px}
-nav{display:grid;grid-template-columns:1.5fr 1.1fr 1fr 1fr;gap:5px}
+nav{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+nav a{grid-column:span 2}
+nav a.wide{grid-column:span 3;padding:6px 4px;font-size:13px}
 nav a{text-align:center;padding:9px 4px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;font-weight:700;font-size:14px}
 nav a[aria-current=page]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -122,7 +124,14 @@ a{color:var(--accent)}
 .watch-strip .since{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
 .watch-strip input{min-height:36px;padding:5px 8px;font-size:14px}
 .seen{color:var(--good);font-weight:700}
-#watch-count{font-weight:500;font-size:12px}
+#watch-count,#seller-count{font-weight:500;font-size:12px}
+.seller{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.seller-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.seller-top b{font-size:15px}
+.seller-actions{display:grid;grid-template-columns:1fr auto;gap:8px}
+.seller-actions a{display:flex;align-items:center;justify-content:center;min-height:40px;border-radius:7px;background:var(--accent);color:var(--accent-ink);font-weight:700;text-decoration:none;font-size:14px}
+.seller input{min-height:36px;padding:5px 8px;font-size:14px}
+.form{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
 .quick button[aria-pressed=true]{color:var(--warn)}
 .detail{border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .recent-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-bottom:4px}
@@ -137,7 +146,7 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
 .capbox label{margin:4px 0 0}
 .cap-budget{display:flex;align-items:center;gap:8px}
 .cap-budget label{flex:none;margin:0}
-.cap-budget input{min-height:36px;padding:5px 8px}
+.cap-budget input{min-height:36px;padding:5px 8px;font-size:15px}
 .quick small{display:block;font-size:10px;font-weight:500;color:var(--muted)}
 .variant{display:inline-block;background:var(--warn-bg);color:var(--warn);border-radius:4px;padding:0 5px;font-size:12px;font-weight:700}
 .stamp{margin-top:8px;font-size:13px;color:var(--muted)}
@@ -161,8 +170,9 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
   <nav aria-label="表示の切り替え">
     <a href="#check" data-view="check">買取を調べる</a>
     <a href="#watch" data-view="watch">ウォッチ<span id="watch-count"></span></a>
-    <a href="#movers" data-view="movers">値動き</a>
-    <a href="#shops" data-view="shops">店の差</a>
+    <a href="#sellers" data-view="sellers">出品者<span id="seller-count"></span></a>
+    <a href="#movers" data-view="movers" class="wide">値動き</a>
+    <a href="#shops" data-view="shops" class="wide">店の差</a>
   </nav>
 
   <main id="view-check" class="list">
@@ -183,6 +193,10 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
       <label>カードの状態</label>
       <div class="chips" id="cond-chips" role="group" aria-label="フリマを開くときの状態の絞り込み"></div>
       <p class="note" id="cond-note"></p>
+      <label>保管の言葉を検索に足す</label>
+      <div class="chips" id="word-chips" role="group" aria-label="保管の言葉を検索に足すかどうか"></div>
+      <div class="cap-budget"><label for="s-words">足す言葉</label><input type="text" id="s-words" maxlength="30" autocomplete="off" placeholder="防湿"></div>
+      <p class="note" id="word-note"></p>
     </details>
     <p class="note" id="check-info"></p>
     <div class="list" id="cards"></div>
@@ -209,7 +223,7 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
     <div class="list" id="watch-cards"></div>
     <details class="panel">
       <summary>書き出しと読み込み</summary>
-      <p class="note" style="margin:8px 0">ウォッチはこの端末のこのブラウザの中にだけ保存されます。別の端末で使うときや、閲覧データを消す前に、書き出しておくと読み込みで戻せます。</p>
+      <p class="note" style="margin:8px 0">ウォッチと出品者の一覧は、この端末のこのブラウザの中にだけ保存されます。別の端末で使うときや、閲覧データを消す前に、書き出しておくと読み込みで戻せます。</p>
       <div class="grid2">
         <button type="button" id="watch-export">ファイルに書き出す</button>
         <button type="button" id="watch-import-btn">ファイルから読み込む</button>
@@ -217,6 +231,20 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
       <input type="file" id="watch-import" accept="application/json,.json" hidden>
       <p class="note" id="watch-io" style="margin-top:6px"></p>
     </details>
+  </main>
+
+  <main id="view-sellers" class="list" hidden>
+    <p class="note">状態の良いカードを出している出品者を覚えておく場所です。フリマで出品者のページを開き、そのURLを貼って登録します。「出品を見る」を押すと、その人のページが開きます。</p>
+    <div class="form">
+      <div><label for="sl-url">出品者のページのURL</label><input type="text" id="sl-url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://jp.mercari.com/user/profile/…"></div>
+      <div><label for="sl-name">呼び名</label><input type="text" id="sl-name" maxlength="30" placeholder="例：防湿庫の人"></div>
+      <div><label for="sl-memo">メモ</label><input type="text" id="sl-memo" maxlength="80" placeholder="例：防湿庫で保管、梱包が丁寧"></div>
+      <button type="button" id="sl-add">登録する</button>
+      <p class="note" id="sl-msg"></p>
+    </div>
+    <p class="note" id="sl-info"></p>
+    <div class="list" id="seller-list"></div>
+    <p class="note">この一覧も、ウォッチのタブの「書き出しと読み込み」に含まれます。</p>
   </main>
 
   <main id="view-movers" class="list" hidden>
@@ -470,13 +498,17 @@ var MARKETS={
 function condLevel(){return settings.cond||"good";}
 function condLabel(){var k=condLevel();for(var i=0;i<COND_LEVELS.length;i++){if(COND_LEVELS[i][0]===k)return COND_LEVELS[i][1];}return "";}
 function marketUrl(name,kw,cap){var m=MARKETS[name];return m.url(kw,cap,m.cond[condLevel()]||"");}
+/* 保管に気を使う出品者を探すために、検索語に足す言葉（例：防湿）。フリマは商品説明の文章も検索する */
+function extraWords(){return settings.wordsOn?String(settings.words||"防湿").trim():"";}
 function marketLinks(g){
-  var kw=encodeURIComponent(searchWord(g)),cap=capFor(g);
+  var kw=encodeURIComponent(searchWord(g)),cap=capFor(g),words=extraWords();
+  var find=words?encodeURIComponent(searchWord(g)+" "+words):kw;  // 出品を探すリンクにだけ足す
   return {
     cap:cap,
-    onSale:marketUrl("mercari",kw,cap),
-    yahooOn:marketUrl("yahooAuction",kw,cap),
-    yahooFlea:marketUrl("yahooFlea",kw,cap),
+    words:words,
+    onSale:marketUrl("mercari",find,cap),
+    yahooOn:marketUrl("yahooAuction",find,cap),
+    yahooFlea:marketUrl("yahooFlea",find,cap),
     // 相場を見るリンクは、値段でも状態でも絞らない
     sold:"https://jp.mercari.com/search?keyword="+kw+"&status=sold_out&sort=created_time&order=desc",
     yahoo:"https://auctions.yahoo.co.jp/closedsearch/closedsearch?p="+kw+"&va="+kw+"&b=1&n=50",
@@ -528,7 +560,7 @@ function cardHtml(g,idx,inWatch){
     '<div class="hit-limits"><div class="lim-title">フリマでいくら以下なら買ってよいか</div>'+
       '<div class="lim"><span>慎重に買うなら</span><b>'+limitText(buy,RATE.b)+'</b><span>店の査定が「傷あり（B）」でも黒字</span></div>'+
       '<div class="lim"><span>ふつうに買うなら</span><b>'+limitText(buy,RATE.am)+'</b><span>査定が「小傷（A-）」なら黒字</span></div></div>'+
-    '<div class="quick-title">出品を探す（'+(L.cap?yen(L.cap)+"まで":"値段は絞らない")+"・"+(condLevel()==="any"?"状態は絞らない":esc(condLabel()))+'）</div>'+
+    '<div class="quick-title">出品を探す（'+(L.cap?yen(L.cap)+"まで":"値段は絞らない")+"・"+(condLevel()==="any"?"状態は絞らない":esc(condLabel()))+(L.words?"・「"+esc(L.words)+"」を含む":"")+'）</div>'+
     '<div class="quick">'+
       '<a class="js-link" href="'+L.onSale+'" target="_blank" rel="noopener">メルカリ<br>新着</a>'+
       '<a class="js-link" href="'+L.yahooFlea+'" target="_blank" rel="noopener">Yahoo!<br>フリマ</a>'+
@@ -635,9 +667,9 @@ function renderWatch(){
 bindCards("watch-cards",function(){return watched;},true,function(){renderWatch();});
 $("watch-sort").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;watchSort=b.dataset.k;renderWatch();});
 $("watch-export").addEventListener("click",function(){
-  var blob=new Blob([JSON.stringify({app:"tcg-buylist-watch",exported:new Date().toISOString(),watch:watch,prices:prices,settings:settings},null,1)],{type:"application/json"});
+  var blob=new Blob([JSON.stringify({app:"tcg-buylist-watch",exported:new Date().toISOString(),watch:watch,prices:prices,settings:settings,sellers:sellers},null,1)],{type:"application/json"});
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="watch-"+today()+".json";document.body.appendChild(a);a.click();a.remove();
-  $("watch-io").textContent=Object.keys(watch).length+"枚を書き出しました。";
+  $("watch-io").textContent="ウォッチ"+Object.keys(watch).length+"枚と、出品者"+sellers.length+"人を書き出しました。";
 });
 $("watch-import-btn").addEventListener("click",function(){$("watch-import").click();});
 $("watch-import").addEventListener("change",function(){
@@ -649,8 +681,14 @@ $("watch-import").addEventListener("change",function(){
       if(!d||typeof d.watch!=="object"||!d.watch)throw new Error("format");
       Object.keys(d.watch).forEach(function(k){var w=d.watch[k];if(!watch[k]&&w&&typeof w.name==="string"){watch[k]={name:w.name,number:String(w.number||""),label:String(w.label||""),added:String(w.added||today()),buy0:Number(w.buy0)||0,memo:String(w.memo||""),seen:String(w.seen||"")};n++;}});
       if(d.prices&&typeof d.prices==="object")Object.keys(d.prices).forEach(function(k){if(prices[k]===undefined)prices[k]=String(d.prices[k]);});
+      // 出品者は、URLを確かめ直してから取り込む
+      if(Array.isArray(d.sellers))d.sellers.forEach(function(x){
+        var site=x&&sellerSite(x.url);
+        if(site&&!sellers.some(function(y){return y.url===site.url;}))sellers.push({id:"s"+Date.now().toString(36)+sellers.length,name:String(x.name||site.market+"の出品者").slice(0,30),url:site.url,market:site.market,memo:String(x.memo||"").slice(0,80),added:String(x.added||today()),seen:String(x.seen||"")});
+      });
+      saveSellers();renderSellers();
       UserStore.set("prices",prices);saveWatch();renderWatch();renderCheck();
-      $("watch-io").textContent=n+"枚を読み込みました（すでにあるカードはそのまま残しています）。";
+      $("watch-io").textContent="ウォッチ"+n+"枚を読み込みました。出品者は合わせて"+sellers.length+"人です（すでにあるものはそのまま残しています）。";
     }catch(e){$("watch-io").textContent="読み込めませんでした。このページで書き出したファイルを選んでください。";}
   };
   reader.readAsText(f);this.value="";
@@ -666,13 +704,63 @@ function renderCap(){
   var cond=condLevel();
   $("cond-chips").innerHTML=COND_LEVELS.map(function(c){return '<button type="button" class="chip" data-k="'+c[0]+'" aria-pressed="'+(cond===c[0])+'">'+c[1]+'</button>';}).join("");
   var capName="";CAP_MODES.forEach(function(m){if(m[0]===mode)capName=m[1];});
-  $("cap-summary").textContent=capName+(mode==="budget"&&b>0?"（"+yen(b)+"）":"")+"・"+(cond==="any"?"状態は指定なし":condLabel());
+  var words=extraWords();
+  $("cap-summary").textContent=capName+(mode==="budget"&&b>0?"（"+yen(b)+"）":"")+"・"+(cond==="any"?"状態は指定なし":condLabel())+(words?"・「"+words+"」を含む":"");
+  $("word-chips").innerHTML=[["off","足さない"],["on","足す"]].map(function(x){return '<button type="button" class="chip" data-k="'+x[0]+'" aria-pressed="'+((settings.wordsOn?"on":"off")===x[0])+'">'+x[1]+'</button>';}).join("");
+  $("s-words").disabled=!settings.wordsOn;
+  $("word-note").textContent=settings.wordsOn?"カード名に「"+words+"」を足して探します。商品説明にこの言葉を書いている出品だけが出るので、出品の少ないカードでは何も出ないことがあります。空白で区切って2つ以上入れると、すべてを含む出品だけになります。":"カード名だけで探します。";
   $("cond-note").textContent=cond==="any"?"状態で絞らずに開きます。":"出品者が選んだ状態が「"+condLabel()+"」の出品だけを開きます。状態は自己申告なので、控えめに書かれた美品は出ません。";
 }
 $("cap-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.cap=b.dataset.k;UserStore.set("settings",settings);renderCap();renderCheck();renderWatch();});
 $("cond-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.cond=b.dataset.k;UserStore.set("settings",settings);renderCap();renderCheck();renderWatch();});
+$("word-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.wordsOn=b.dataset.k==="on";if(settings.wordsOn&&!settings.words){settings.words="防湿";$("s-words").value="防湿";}UserStore.set("settings",settings);renderCap();renderCheck();renderWatch();});
+$("s-words").addEventListener("input",function(){settings.words=this.value;UserStore.set("settings",settings);renderCap();renderCheck();renderWatch();});
 $("s-budget").addEventListener("input",function(){onSettings();renderCap();});
 $("s-ship").addEventListener("input",onSettings);$("s-kantei").addEventListener("change",onSettings);
+
+/* ===== 出品者 =====
+   状態の良いカードを出す出品者の覚え書き。{id, name, url, market, memo, added, seen} の並び。
+   フリマからは何も取得しない。貼られたURLを保存して、開くだけ。 */
+var SELLER_SITES=[
+  ["jp.mercari.com","メルカリ"],["mercari-shops.com","メルカリShops"],
+  ["paypayfleamarket.yahoo.co.jp","Yahoo!フリマ"],["auctions.yahoo.co.jp","ヤフオク"]
+];
+var sellers=UserStore.get("sellers",[]);
+function saveSellers(){UserStore.set("sellers",sellers);$("seller-count").textContent=sellers.length?" "+sellers.length:"";}
+/* 貼られたURLを確かめる。https のフリマのページだけを受け付ける */
+function sellerSite(raw){
+  var u;try{u=new URL(String(raw).trim());}catch(e){return null;}
+  if(u.protocol!=="https:")return null;
+  for(var i=0;i<SELLER_SITES.length;i++){var h=SELLER_SITES[i][0];if(u.hostname===h||u.hostname.slice(-h.length-1)==="."+h)return {url:u.href,market:SELLER_SITES[i][1]};}
+  return null;
+}
+function renderSellers(){
+  var list=sellers.slice().sort(function(a,b){return (a.seen||"")<(b.seen||"")?-1:(a.seen||"")>(b.seen||"")?1:0;});  // 長く見ていない人を上に
+  $("sl-info").textContent=sellers.length?sellers.length+"人を登録しています。長く見ていない順に並べています。":"";
+  $("seller-list").innerHTML=list.length?list.map(function(x){
+    return '<div class="seller" data-id="'+esc(x.id)+'"><div class="seller-top"><b>'+esc(x.name)+'</b><span class="note">'+esc(x.market)+'</span></div>'+
+      '<span class="'+(x.seen===today()?"seen":"note")+'">'+(x.seen===today()?"✓ 今日は見ました":x.seen?"最後に見た日: "+esc(x.seen.slice(5).replace("-","/")):"まだ見ていません")+'</span>'+
+      '<input type="text" class="js-smemo" maxlength="80" placeholder="メモ" aria-label="メモ" value="'+esc(x.memo||"")+'">'+
+      '<div class="seller-actions"><a class="js-sopen" href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">出品を見る</a><button type="button" class="js-sdel">外す</button></div></div>';
+  }).join(""):'<p class="empty">まだ登録していません。フリマで出品者のページを開いて、URLを上の欄に貼ってください。</p>';
+}
+function sellerById(el){var box=el.closest(".seller");if(!box)return null;for(var i=0;i<sellers.length;i++){if(sellers[i].id===box.dataset.id)return sellers[i];}return null;}
+$("sl-add").addEventListener("click",function(){
+  var site=sellerSite($("sl-url").value),name=$("sl-name").value.trim();
+  if(!site){$("sl-msg").textContent="メルカリ・Yahoo!フリマ・ヤフオクの出品者のページのURL（https://〜）を貼ってください。";return;}
+  if(sellers.some(function(x){return x.url===site.url;})){$("sl-msg").textContent="このURLはすでに登録しています。";return;}
+  sellers.push({id:"s"+Date.now().toString(36),name:name||site.market+"の出品者",url:site.url,market:site.market,memo:$("sl-memo").value.trim(),added:today(),seen:""});
+  saveSellers();$("sl-url").value="";$("sl-name").value="";$("sl-memo").value="";$("sl-msg").textContent="登録しました。";renderSellers();
+});
+$("seller-list").addEventListener("click",function(e){
+  var x=sellerById(e.target);if(!x)return;
+  if(e.target.closest(".js-sopen")){x.seen=today();saveSellers();setTimeout(renderSellers,0);return;}
+  if(e.target.closest(".js-sdel")){sellers=sellers.filter(function(y){return y!==x;});saveSellers();renderSellers();}
+});
+$("seller-list").addEventListener("input",function(e){
+  if(!e.target.classList.contains("js-smemo"))return;
+  var x=sellerById(e.target);if(x){x.memo=e.target.value;saveSellers();}
+});
 
 /* 値動き */
 var PRICE_STEPS=[[0,"すべて"],[500,"500円以上"],[1000,"1,000円以上"],[3000,"3,000円以上"],[10000,"1万円以上"]];
@@ -737,15 +825,16 @@ document.addEventListener("click",function(e){
 
 /* 表示の切り替え */
 function route(){
-  var v=(location.hash||"#check").slice(1);if(["check","watch","movers","shops"].indexOf(v)<0)v="check";
-  ["check","watch","movers","shops"].forEach(function(n){$("view-"+n).hidden=n!==v;});
+  var v=(location.hash||"#check").slice(1);if(["check","watch","sellers","movers","shops"].indexOf(v)<0)v="check";
+  ["check","watch","sellers","movers","shops"].forEach(function(n){$("view-"+n).hidden=n!==v;});
   if(v==="watch"&&DATA)renderWatch();
   document.querySelectorAll("nav a").forEach(function(a){if(a.dataset.view===v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",route);
 
-$("s-ship").value=settings.ship||0;$("s-kantei").checked=!!settings.kantei;$("s-budget").value=settings.budget||"";renderCap();
+saveSellers();renderSellers();
+$("s-ship").value=settings.ship||0;$("s-kantei").checked=!!settings.kantei;$("s-budget").value=settings.budget||"";$("s-words").value=settings.words||"";renderCap();
 route();
 if((location.hash||"#check")==="#check")$("q").focus();
 Source.catalog().then(function(d){
