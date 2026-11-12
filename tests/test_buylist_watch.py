@@ -224,7 +224,7 @@ class SiteTest(unittest.TestCase):
             day1 = [price("1", name="スターミー", number="005/016", buy=20000), price("2", buy=500), price("3", buy=9000)]
             day2 = [price("1", name="スターミー", number="005/016", buy=50000), price("2", buy=600)]
             store.save(data, "cardrush", day1, "2026-11-10T05:00:00+09:00")
-            store.save(data, "cardrush", day2, "2026-11-11T05:00:00+09:00")
+            store.save(data, "cardrush", day2, "2026-11-11T05:00:00+09:00", force=True)  # 3件から2件への減少を通す
             store.save(data, "hareruya2", [price("9", name="スターミー", number="005/016", buy=0, sell=30000)],
                        "2026-11-11T05:00:00+09:00")
             out = site.build_data(data, min_buy=1000)
