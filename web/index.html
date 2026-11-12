@@ -100,6 +100,11 @@ svg.chart{width:100%;height:auto;display:block}
 .recent{display:flex;flex-wrap:wrap;gap:6px}
 .recent .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
+.capbox{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.cap-budget{display:flex;align-items:center;gap:8px}
+.cap-budget label{flex:none;margin:0}
+.cap-budget input{min-height:36px;padding:5px 8px}
+.quick small{display:block;font-size:10px;font-weight:500;color:var(--muted)}
 .variant{display:inline-block;background:var(--warn-bg);color:var(--warn);border-radius:4px;padding:0 5px;font-size:12px;font-weight:700}
 .stamp{margin-top:8px;font-size:13px;color:var(--muted)}
 .stamp-title{font-size:12px;margin-bottom:4px}
@@ -133,6 +138,12 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
     <div id="recent-box" hidden>
       <div class="recent-head"><span>最近調べたカード（5件まで。古いものから消えます）</span><button type="button" id="recent-clear">消す</button></div>
       <div class="recent" id="recent"></div>
+    </div>
+    <div class="capbox">
+      <label>フリマを開くときの値段の絞り込み</label>
+      <div class="chips" id="cap-chips" role="group" aria-label="フリマを開くときの値段の絞り込み"></div>
+      <div class="cap-budget"><label for="s-budget">予算の上限（円）</label><input type="number" id="s-budget" inputmode="numeric" min="0" placeholder="空なら使わない"></div>
+      <p class="note" id="cap-note"></p>
     </div>
     <p class="note" id="check-info"></p>
     <div class="list" id="cards"></div>
@@ -262,13 +273,30 @@ function chart(points){
 }
 
 /* 売れた価格と出品を開くリンク。どれも人が画面で見るためのもので、自動では取得しない */
+/* フリマを開くときの値段の絞り込み。決め打ちにせず、自分で選ぶ */
+var CAP_MODES=[["none","絞らない"],["buy","買取価格まで"],["normal","ふつうの上限まで"],["safe","慎重の上限まで"]];
+var CAP_NOTE={
+  none:"値段で絞らずに、すべての出品を開きます。",
+  buy:"買取価格より高い出品を外します。美品で持ち込んでも赤字になる出品だけが消えるので、取り逃がしはありません。",
+  normal:"査定が「小傷（A-）」でも黒字になる値段までの出品だけを開きます。少し上の値段の美品は出ません。",
+  safe:"査定が「傷あり（B）」でも黒字になる値段までの出品だけを開きます。出てくる数はかなり減ります。"
+};
+function capFor(g){
+  var buy=buyOf(g),mode=settings.cap||"buy",budget=Number(settings.budget)||0;
+  var v=mode==="buy"?buy-extra():mode==="normal"?buy*RATE.am-extra():mode==="safe"?buy*RATE.b-extra():0;
+  v=Math.floor(v);
+  if(mode!=="none"&&v<=0)v=0;  // 上限が出ないカードは絞らない
+  if(budget>0)v=v>0?Math.min(v,budget):budget;
+  return v>0?v:0;
+}
 function marketLinks(g){
-  var kw=encodeURIComponent(searchWord(g));
+  var kw=encodeURIComponent(searchWord(g)),cap=capFor(g);
   return {
-    onSale:"https://jp.mercari.com/search?keyword="+kw+"&status=on_sale&sort=created_time&order=desc",
+    cap:cap,
+    onSale:"https://jp.mercari.com/search?keyword="+kw+"&status=on_sale&sort=created_time&order=desc"+(cap?"&price_max="+cap:""),
     sold:"https://jp.mercari.com/search?keyword="+kw+"&status=sold_out&sort=created_time&order=desc",
     yahoo:"https://auctions.yahoo.co.jp/closedsearch/closedsearch?p="+kw+"&va="+kw+"&b=1&n=50",
-    yahooFlea:"https://paypayfleamarket.yahoo.co.jp/search/"+kw+"?open=1",
+    yahooFlea:"https://paypayfleamarket.yahoo.co.jp/search/"+kw+"?open=1"+(cap?"&maxPrice="+cap:""),
     rush:"https://cardrush.media/pokemon/buying_prices?name="+encodeURIComponent(g.name),
     hare:"https://www.hareruya2.com/search?q="+kw,
     yuyu:"https://yuyu-tei.jp/buy/poc/s/search?search_word="+encodeURIComponent(g.name)
@@ -293,7 +321,7 @@ function detailHtml(g,idx){
     '<div class="card-in"><div><label for="p'+idx+'">見つけた出品の価格（円）</label><input type="number" inputmode="numeric" min="0" id="p'+idx+'" class="js-price" value="'+esc(prices[g.key]===undefined?"":prices[g.key])+'"></div>'+
       '<div class="outs js-outs">'+o.html+'</div></div>'+
     (hist?'<div><label>買取価格の推移</label>'+hist+'</div>':'')+
-    '<div class="links"><a class="js-link" href="'+L.yahooFlea+'" target="_blank" rel="noopener">Yahoo!フリマの出品</a>'+
+    '<div class="links"><a class="js-link" href="'+L.yahooFlea+'" target="_blank" rel="noopener">Yahoo!フリマの出品'+(L.cap?"（"+yen(L.cap)+"まで）":"")+'</a>'+
       '<a class="js-link" href="'+L.rush+'" target="_blank" rel="noopener">カードラッシュの買取表</a>'+
       '<a class="js-link" href="'+L.hare+'" target="_blank" rel="noopener">晴れる屋2で探す</a>'+
       '<a class="js-link" href="'+L.yuyu+'" target="_blank" rel="noopener">遊々亭の買取表</a></div>'+
@@ -311,7 +339,7 @@ function cardHtml(g,idx){
       '<div class="lim"><span>慎重に買うなら</span><b>'+limitText(buy,RATE.b)+'</b><span>店の査定が「傷あり（B）」でも黒字</span></div>'+
       '<div class="lim"><span>ふつうに買うなら</span><b>'+limitText(buy,RATE.am)+'</b><span>査定が「小傷（A-）」なら黒字</span></div></div>'+
     '<div class="quick">'+
-      '<a class="js-link" href="'+L.onSale+'" target="_blank" rel="noopener">メルカリ<br>新着</a>'+
+      '<a class="js-link" href="'+L.onSale+'" target="_blank" rel="noopener"><span>メルカリ<br>新着'+(L.cap?'<small>'+yen(L.cap)+'まで</small>':'')+'</span></a>'+
       '<a class="js-link" href="'+L.sold+'" target="_blank" rel="noopener">メルカリ<br>売り切れ</a>'+
       '<a class="js-link" href="'+L.yahoo+'" target="_blank" rel="noopener">ヤフオク<br>落札相場</a>'+
       '<button type="button" class="js-pin" aria-pressed="'+pinned+'" aria-label="'+(pinned?"ウォッチから外す":"ウォッチに入れる")+'">'+(pinned?"★":"☆")+'</button></div>'+
@@ -368,7 +396,14 @@ $("cards").addEventListener("input",function(e){
   save("checker.prices",prices);
   var o=outs(g);art.className="hit "+o.cls;art.querySelector(".js-outs").innerHTML=o.html;
 });
-function onSettings(){settings.ship=Number($("s-ship").value)||0;settings.kantei=$("s-kantei").checked;save("checker.settings",settings);renderCheck();}
+function onSettings(){settings.ship=Number($("s-ship").value)||0;settings.kantei=$("s-kantei").checked;settings.budget=Number($("s-budget").value)||0;save("checker.settings",settings);renderCheck();}
+function renderCap(){
+  var mode=settings.cap||"buy";
+  $("cap-chips").innerHTML=CAP_MODES.map(function(m){return '<button type="button" class="chip" data-k="'+m[0]+'" aria-pressed="'+(mode===m[0])+'">'+m[1]+'</button>';}).join("");
+  $("cap-note").textContent=CAP_NOTE[mode]+(Number(settings.budget)>0?" 予算（"+yen(Number(settings.budget))+"）を超える出品も外します。":"");
+}
+$("cap-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.cap=b.dataset.k;save("checker.settings",settings);renderCap();renderCheck();});
+$("s-budget").addEventListener("input",function(){onSettings();renderCap();});
 $("s-ship").addEventListener("input",onSettings);$("s-kantei").addEventListener("change",onSettings);
 
 /* 値動き */
@@ -441,7 +476,7 @@ function route(){
 }
 window.addEventListener("hashchange",route);
 
-$("s-ship").value=settings.ship||0;$("s-kantei").checked=!!settings.kantei;
+$("s-ship").value=settings.ship||0;$("s-kantei").checked=!!settings.kantei;$("s-budget").value=settings.budget||"";renderCap();
 route();
 if((location.hash||"#check")==="#check")$("q").focus();
 fetch("data.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();}).then(function(d){
