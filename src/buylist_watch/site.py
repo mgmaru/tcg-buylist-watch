@@ -68,8 +68,10 @@ def build_data(data_dir: Path, min_buy: int = 1000, cross_limit: int = 2000) -> 
     loaded = {}
     for name in SOURCES:
         loaded[name] = store.read_latest(data_dir / name / "latest.csv")
+    # 仕様までそろった「同じカード」のキー。型番のない商品は入らない
+    groups = compare.assign_groups(loaded)
     # どこかの店が min_buy 以上で買い取っているカード。ほかの店は買取が安くても比べるために載せる
-    wanted = {compare.match_key(p) for prices in loaded.values() for p in prices if p.buy_price >= min_buy}
+    wanted = {groups.get((name, p.item_id)) for name, prices in loaded.items() for p in prices if p.buy_price >= min_buy}
     wanted.discard(None)
     for shop, name in enumerate(SOURCES):
         src_dir = data_dir / name
@@ -84,9 +86,11 @@ def build_data(data_dir: Path, min_buy: int = 1000, cross_limit: int = 2000) -> 
         moved = {m[9] for m in shop_movers}  # 値動きのあったカードは、少額でも調べられるように載せる
         kept = set()
         for p in prices:
-            if p.buy_price >= min_buy or p.item_id in moved or compare.match_key(p) in wanted:
+            group = groups.get((name, p.item_id), "")
+            if p.buy_price >= min_buy or p.item_id in moved or group in wanted:
                 kept.add(p.item_id)
-                items.append([shop, p.item_id, p.name, p.variant, p.set_code, p.number, p.rarity, p.buy_price, p.sell_price or 0])
+                items.append([shop, p.item_id, p.name, p.variant, p.set_code, p.number, p.rarity, p.buy_price, p.sell_price or 0,
+                              group, compare.group_label(p.variant)])
         movers += [m[:9] for m in shop_movers]
         for item_id, points in build_history(changes).items():
             if item_id in kept:

@@ -160,6 +160,43 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(compare.norm("ＭミュウツーＥＸ "), "MミュウツーEX")
 
 
+class VariantTest(unittest.TestCase):
+    def test_variant_tags_unify_shop_wording(self):
+        self.assertEqual(compare.variant_tags("マスターボール柄/ミラー仕様"), (("マスターボールミラー",), ""))
+        self.assertEqual(compare.variant_tags("マスターボールミラー"), (("マスターボールミラー",), ""))
+        self.assertEqual(compare.variant_tags("再販")[0], compare.variant_tags("アンリミ")[0])
+        self.assertEqual(compare.variant_tags("キラ1ED"), (("1ED",), "キラ"))
+        self.assertEqual(compare.variant_tags("未開封/乱戦！ポケモンスクランブル")[0], ("未開封",))
+        self.assertEqual(compare.variant_tags("RR仕様"), ((), ""))  # レアリティの言い換えは区別に使わない
+        self.assertEqual(compare.variant_tags("ミラー仕様"), compare.variant_tags("ミラー"))
+
+    def groups(self, **shops):
+        loaded = {shop: [price(f"{shop}{n}", name="ゲンガー", number="094/165", variant=v) for n, v in enumerate(variants)]
+                  for shop, variants in shops.items()}
+        got = compare.assign_groups(loaded)
+        return {(shop, p.variant): got[(shop, p.item_id)] for shop, prices in loaded.items() for p in prices}
+
+    def test_different_price_relevant_variants_are_never_the_same_card(self):
+        g = self.groups(a=["マスターボールミラー", "1ED"], b=["", "マスターボール柄/ミラー仕様", "再販"])
+        self.assertEqual(g[("a", "マスターボールミラー")], g[("b", "マスターボール柄/ミラー仕様")])
+        self.assertEqual(len(set(g.values())), 4)  # 通常・マスターボール・1ED・再販
+
+    def test_descriptive_words_are_ignored_when_each_shop_has_one_row(self):
+        g = self.groups(a=["RR仕様"], b=[""], c=["キラ"])
+        self.assertEqual(len(set(g.values())), 1)
+
+    def test_descriptive_words_tell_rows_apart_when_a_shop_has_several(self):
+        g = self.groups(a=["ジムチャレンジ"], b=["ジムチャレンジ通常", "ジムチャレンジ網柄"])
+        self.assertEqual(len(set(g.values())), 3)  # どれと同じか分からないので、まとめない
+
+    def test_cross_shop_compares_only_the_same_variant(self):
+        a = [price("1", name="ゲンガー", number="094/165", variant="マスターボールミラー", buy=85000)]
+        b = [price("2", name="ゲンガー", number="094/165", variant="", buy=0, sell=500),
+             price("3", name="ゲンガー", number="094/165", variant="マスターボール柄/ミラー仕様", buy=0, sell=60000)]
+        rows = compare.cross_shop({"a": a}, {"a": a, "b": b})
+        self.assertEqual([(r["sell_variant"], r["gap"]) for r in rows], [("マスターボール柄/ミラー仕様", 25000)])
+
+
 class ParallelFetchTest(unittest.TestCase):
     def test_shops_are_fetched_at_the_same_time_and_one_failure_does_not_stop_the_others(self):
         import threading

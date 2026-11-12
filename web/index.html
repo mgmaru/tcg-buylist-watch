@@ -100,6 +100,7 @@ svg.chart{width:100%;height:auto;display:block}
 .recent{display:flex;flex-wrap:wrap;gap:6px}
 .recent .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
+.variant{display:inline-block;background:var(--warn-bg);color:var(--warn);border-radius:4px;padding:0 5px;font-size:12px;font-weight:700}
 .stamp{margin-top:8px;font-size:13px;color:var(--muted)}
 .stamp-title{font-size:12px;margin-bottom:4px}
 .stamp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px}
@@ -161,7 +162,7 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
   </main>
 
   <main id="view-shops" class="list" hidden>
-    <p class="note">ある店の買取価格が、別の店の販売価格より高い組み合わせです。名前と型番だけで突き合わせているので、1EDと再販のような仕様違いが混ざります。販売価格は在庫がなくても表示されます。</p>
+    <p class="note">ある店の買取価格が、別の店の販売価格より高い組み合わせです。1ED・再販・ミラーの種類・未開封などの仕様までそろったものだけを比べています。晴れる屋2の販売価格は在庫がなくても表示されるので、その値段で買えるとは限りません。</p>
     <div class="searchbar">
       <label for="cq">カード名か型番で絞り込む</label>
       <input type="search" id="cq" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" placeholder="ゲンガー 042/090">
@@ -210,9 +211,10 @@ function extra(){return (Number(settings.ship)||0)+(settings.kantei?1700:0);}
 function buildGroups(){
   var map=new Map();
   DATA.items.forEach(function(it){
-    var key=it[5].indexOf("/")>=0?norm(it[2])+"|"+norm(it[5]):"s"+it[0]+":"+it[1];
+    // it[9] は「仕様までそろった同じカード」のキー。型番のない商品は店ごとに別々に扱う
+    var key=it[9]||"s"+it[0]+":"+it[1];
     var g=map.get(key);
-    if(!g){g={key:key,name:it[2],number:it[5],entries:[],best:0,hay:""};map.set(key,g);}
+    if(!g){g={key:key,name:it[2],number:it[5],label:it[10]||"",entries:[],best:0,hay:""};map.set(key,g);}
     g.entries.push(it);
     if(it[7]>g.best)g.best=it[7];
     g.hay+=" "+norm(it[2]+it[3]+it[4]+it[5]);
@@ -282,7 +284,8 @@ function detailHtml(g,idx){
   for(var i=0;i<g.entries.length&&!hist;i++){hist=chart(DATA.history[g.entries[i][0]+":"+g.entries[i][1]]);}
   return '<div class="detail">'+
     '<table><thead><tr><th>店</th><th>買取</th><th>販売</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    (many?'<p class="note">同じ型番でも、店や仕様（1ED・再販・色違いなど）で買取価格が違います。出品に合う行を選ぶと、上限と利益がその買取価格で計算されます。</p>':'')+
+    (many?'<p class="note">行を選ぶと、上限と利益がその店の買取価格で計算されます。</p>':'')+
+    '<p class="note">1ED・再販・ミラーの種類・未開封などの仕様が違うものは、別のカードとして分けて表示しています。店ごとの書き方の違いで、同じカードが分かれて出ることもあります。</p>'+
     '<div><label>店の査定ごとの、買ってよい上限（これ以下で仕入れれば黒字）</label><div class="figs">'+
       '<div class="fig"><span>傷あり（B）の査定</span><b>'+limit(buy,RATE.b)+'</b></div>'+
       '<div class="fig"><span>小傷（A-）の査定</span><b>'+limit(buy,RATE.am)+'</b></div>'+
@@ -302,7 +305,7 @@ function cardHtml(g,idx){
   var shops=buying.length>1?buying.length+"件の買取価格あり":shopName(buying[0][0])+"が買取";
   return '<article class="hit '+o.cls+'" data-i="'+idx+'">'+
     '<button type="button" class="hit-head js-toggle" aria-expanded="'+(g.open?"true":"false")+'">'+
-      '<span><span class="hit-name">'+esc(g.name)+'</span><br><span class="card-model num">'+esc(g.number||"型番なし")+' ・ '+esc(shops)+'</span></span>'+
+      '<span><span class="hit-name">'+esc(g.name)+'</span><br><span class="card-model num">'+esc(g.number||"型番なし")+(g.label?' <b class="variant">'+esc(g.label)+'</b>':'')+' ・ '+esc(shops)+'</span></span>'+
       '<span class="hit-buy"><small>買取（状態A）</small>'+yen(buy)+'</span></button>'+
     '<div class="hit-limits"><div class="lim-title">フリマでいくら以下なら買ってよいか</div>'+
       '<div class="lim"><span>慎重に買うなら</span><b>'+limitText(buy,RATE.b)+'</b><span>店の査定が「傷あり（B）」でも黒字</span></div>'+
