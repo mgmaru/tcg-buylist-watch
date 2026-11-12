@@ -1,3 +1,4 @@
+import csv
 import json
 import tempfile
 import unittest
@@ -157,6 +158,20 @@ class CompareTest(unittest.TestCase):
 
     def test_fullwidth_and_spaces_match(self):
         self.assertEqual(compare.norm("ＭミュウツーＥＸ "), "MミュウツーEX")
+
+
+class SameDayTest(unittest.TestCase):
+    def test_second_fetch_on_the_same_day_keeps_morning_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            store.save(data, "cardrush", [price("1", buy=1000), price("2", buy=2000), price("3", buy=3000)], "2026-11-11T09:00:00+09:00")
+            store.save(data, "cardrush", [price("1", buy=1500), price("2", buy=2500), price("3", buy=3000), price("4", buy=400)],
+                       "2026-11-12T09:00:00+09:00")
+            store.save(data, "cardrush", [price("1", buy=1500), price("2", buy=2000), price("3", buy=3300)], "2026-11-12T13:00:00+09:00")
+            with (data / "cardrush" / "changes" / "2026-11-12.csv").open(encoding="utf-8", newline="") as f:
+                got = {r["item_id"]: (r["change"], r["old_buy"], r["new_buy"]) for r in csv.DictReader(f)}
+            # 1: 朝の値上げが残る。2: 朝上がって昼に戻ったので消える。3: 昼の値上げ。4: 朝に載って昼に消えたので記録しない
+            self.assertEqual(got, {"1": ("up", "1000", "1500"), "3": ("up", "3000", "3300")})
 
 
 class SiteTest(unittest.TestCase):
