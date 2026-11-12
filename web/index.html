@@ -193,10 +193,6 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
       <label>カードの状態</label>
       <div class="chips" id="cond-chips" role="group" aria-label="フリマを開くときの状態の絞り込み"></div>
       <p class="note" id="cond-note"></p>
-      <label>保管の言葉を検索に足す</label>
-      <div class="chips" id="word-chips" role="group" aria-label="保管の言葉を検索に足すかどうか"></div>
-      <div class="cap-budget"><label for="s-words">足す言葉</label><input type="text" id="s-words" maxlength="30" autocomplete="off" placeholder="防湿"></div>
-      <p class="note" id="word-note"></p>
     </details>
     <p class="note" id="check-info"></p>
     <div class="list" id="cards"></div>
@@ -498,17 +494,13 @@ var MARKETS={
 function condLevel(){return settings.cond||"good";}
 function condLabel(){var k=condLevel();for(var i=0;i<COND_LEVELS.length;i++){if(COND_LEVELS[i][0]===k)return COND_LEVELS[i][1];}return "";}
 function marketUrl(name,kw,cap){var m=MARKETS[name];return m.url(kw,cap,m.cond[condLevel()]||"");}
-/* 保管に気を使う出品者を探すために、検索語に足す言葉（例：防湿）。フリマは商品説明の文章も検索する */
-function extraWords(){return settings.wordsOn?String(settings.words||"防湿").trim():"";}
 function marketLinks(g){
-  var kw=encodeURIComponent(searchWord(g)),cap=capFor(g),words=extraWords();
-  var find=words?encodeURIComponent(searchWord(g)+" "+words):kw;  // 出品を探すリンクにだけ足す
+  var kw=encodeURIComponent(searchWord(g)),cap=capFor(g);
   return {
     cap:cap,
-    words:words,
-    onSale:marketUrl("mercari",find,cap),
-    yahooOn:marketUrl("yahooAuction",find,cap),
-    yahooFlea:marketUrl("yahooFlea",find,cap),
+    onSale:marketUrl("mercari",kw,cap),
+    yahooOn:marketUrl("yahooAuction",kw,cap),
+    yahooFlea:marketUrl("yahooFlea",kw,cap),
     // 相場を見るリンクは、値段でも状態でも絞らない
     sold:"https://jp.mercari.com/search?keyword="+kw+"&status=sold_out&sort=created_time&order=desc",
     yahoo:"https://auctions.yahoo.co.jp/closedsearch/closedsearch?p="+kw+"&va="+kw+"&b=1&n=50",
@@ -560,7 +552,7 @@ function cardHtml(g,idx,inWatch){
     '<div class="hit-limits"><div class="lim-title">フリマでいくら以下なら買ってよいか</div>'+
       '<div class="lim"><span>慎重に買うなら</span><b>'+limitText(buy,RATE.b)+'</b><span>店の査定が「傷あり（B）」でも黒字</span></div>'+
       '<div class="lim"><span>ふつうに買うなら</span><b>'+limitText(buy,RATE.am)+'</b><span>査定が「小傷（A-）」なら黒字</span></div></div>'+
-    '<div class="quick-title">出品を探す（'+(L.cap?yen(L.cap)+"まで":"値段は絞らない")+"・"+(condLevel()==="any"?"状態は絞らない":esc(condLabel()))+(L.words?"・「"+esc(L.words)+"」を含む":"")+'）</div>'+
+    '<div class="quick-title">出品を探す（'+(L.cap?yen(L.cap)+"まで":"値段は絞らない")+"・"+(condLevel()==="any"?"状態は絞らない":esc(condLabel()))+'）</div>'+
     '<div class="quick">'+
       '<a class="js-link" href="'+L.onSale+'" target="_blank" rel="noopener">メルカリ<br>新着</a>'+
       '<a class="js-link" href="'+L.yahooFlea+'" target="_blank" rel="noopener">Yahoo!<br>フリマ</a>'+
@@ -704,17 +696,11 @@ function renderCap(){
   var cond=condLevel();
   $("cond-chips").innerHTML=COND_LEVELS.map(function(c){return '<button type="button" class="chip" data-k="'+c[0]+'" aria-pressed="'+(cond===c[0])+'">'+c[1]+'</button>';}).join("");
   var capName="";CAP_MODES.forEach(function(m){if(m[0]===mode)capName=m[1];});
-  var words=extraWords();
-  $("cap-summary").textContent=capName+(mode==="budget"&&b>0?"（"+yen(b)+"）":"")+"・"+(cond==="any"?"状態は指定なし":condLabel())+(words?"・「"+words+"」を含む":"");
-  $("word-chips").innerHTML=[["off","足さない"],["on","足す"]].map(function(x){return '<button type="button" class="chip" data-k="'+x[0]+'" aria-pressed="'+((settings.wordsOn?"on":"off")===x[0])+'">'+x[1]+'</button>';}).join("");
-  $("s-words").disabled=!settings.wordsOn;
-  $("word-note").textContent=settings.wordsOn?"カード名に「"+words+"」を足して探します。商品説明にこの言葉を書いている出品だけが出るので、出品の少ないカードでは何も出ないことがあります。空白で区切って2つ以上入れると、すべてを含む出品だけになります。":"カード名だけで探します。";
+  $("cap-summary").textContent=capName+(mode==="budget"&&b>0?"（"+yen(b)+"）":"")+"・"+(cond==="any"?"状態は指定なし":condLabel());
   $("cond-note").textContent=cond==="any"?"状態で絞らずに開きます。":"出品者が選んだ状態が「"+condLabel()+"」の出品だけを開きます。状態は自己申告なので、控えめに書かれた美品は出ません。";
 }
 $("cap-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.cap=b.dataset.k;UserStore.set("settings",settings);renderCap();renderCheck();renderWatch();});
 $("cond-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.cond=b.dataset.k;UserStore.set("settings",settings);renderCap();renderCheck();renderWatch();});
-$("word-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.wordsOn=b.dataset.k==="on";if(settings.wordsOn&&!settings.words){settings.words="防湿";$("s-words").value="防湿";}UserStore.set("settings",settings);renderCap();renderCheck();renderWatch();});
-$("s-words").addEventListener("input",function(){settings.words=this.value;UserStore.set("settings",settings);renderCap();renderCheck();renderWatch();});
 $("s-budget").addEventListener("input",function(){onSettings();renderCap();});
 $("s-ship").addEventListener("input",onSettings);$("s-kantei").addEventListener("change",onSettings);
 
@@ -834,7 +820,7 @@ function route(){
 window.addEventListener("hashchange",route);
 
 saveSellers();renderSellers();
-$("s-ship").value=settings.ship||0;$("s-kantei").checked=!!settings.kantei;$("s-budget").value=settings.budget||"";$("s-words").value=settings.words||"";renderCap();
+$("s-ship").value=settings.ship||0;$("s-kantei").checked=!!settings.kantei;$("s-budget").value=settings.budget||"";renderCap();
 route();
 if((location.hash||"#check")==="#check")$("q").focus();
 Source.catalog().then(function(d){
