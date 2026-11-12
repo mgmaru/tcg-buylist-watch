@@ -102,6 +102,31 @@ def diff(old: list[Price], new: list[Price], removals: bool = True) -> list[dict
     return out
 
 
+def merge_changes(earlier: list[dict], later: list[dict]) -> list[dict]:
+    """同じ日に2回取得したときの変化をまとめる。その日の最初の値と最後の値を比べた形にする。"""
+    merged = {r["item_id"]: dict(r) for r in earlier}
+    for r in later:
+        first = merged.get(r["item_id"])
+        if first is None:
+            merged[r["item_id"]] = dict(r)
+            continue
+        row = dict(r, old_buy=first["old_buy"], old_sell=first["old_sell"])
+        if first["change"] == "new":
+            # 朝に載って、その日のうちに消えたものは記録しない
+            row["change"] = None if r["change"] == "removed" else "new"
+        elif r["change"] != "removed":
+            old, new = int(row["old_buy"] or 0), int(row["new_buy"] or 0)
+            if new != old:
+                row["change"] = "up" if new > old else "down"
+            else:
+                row["change"] = "sell" if str(row["old_sell"]) != str(row["new_sell"]) else None
+        if row["change"] is None:
+            del merged[r["item_id"]]
+        else:
+            merged[r["item_id"]] = row
+    return list(merged.values())
+
+
 def save(data_dir: Path, source: str, prices: Iterable[Price], fetched_at: str, partial: bool = False) -> dict:
     """保存して、件数と変化の数を返す。partial は一部だけ取得した試し実行のとき True。"""
     src_dir = data_dir / source
@@ -120,6 +145,10 @@ def save(data_dir: Path, source: str, prices: Iterable[Price], fetched_at: str, 
     if changes:
         path = src_dir / "changes" / f"{fetched_at[:10]}.csv"
         path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            # 同じ日の2回目以降。朝の記録を消さずにまとめる
+            with path.open(encoding="utf-8", newline="") as f:
+                changes = merge_changes(list(csv.DictReader(f)), changes)
         with path.open("w", encoding="utf-8", newline="") as f:
             w = csv.DictWriter(f, fieldnames=CHANGE_FIELDS, lineterminator="\n")
             w.writeheader()
