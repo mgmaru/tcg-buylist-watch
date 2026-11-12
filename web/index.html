@@ -73,21 +73,28 @@ a{color:var(--accent)}
 .row-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
 .row-top b{font-size:15px}
 .empty{color:var(--muted);text-align:center;padding:20px}
-.trend{display:flex;flex-direction:column;gap:6px}
+.trend{display:flex;flex-direction:column;gap:5px}
+.trend-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.trend-head label{margin:0}
 .trend svg{width:100%;height:auto;display:block;touch-action:pan-y}
 .trend-grid{stroke:var(--line);stroke-width:1}
-.trend-line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.trend-line{fill:none;stroke-width:1.75;stroke-linejoin:round;stroke-linecap:round}
 .trend-dot{stroke:var(--surface);stroke-width:2}
-.trend-text{fill:var(--muted);font-size:10px;font-family:var(--font-num)}
+.trend-text{fill:var(--muted);font-size:9px;font-family:var(--font-num)}
 .trend-cross{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
 .s0{stroke:var(--s0)} .s1{stroke:var(--s1)} .s2{stroke:var(--s2)}
 .f0{fill:var(--s0)} .f1{fill:var(--s1)} .f2{fill:var(--s2)}
 .b0{background:var(--s0)} .b1{background:var(--s1)} .b2{background:var(--s2)}
-.trend-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px}
+.trend-legend{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:11px}
 .trend-legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
-.trend-tip{font-size:12px;background:var(--bg);border-radius:7px;padding:6px 8px;min-height:30px}
-.trend-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.trend-stats .fig b{font-size:14px}
+.trend-tip{font-size:11px;min-height:16px}
+.trend-stats{display:flex;flex-direction:column;font-size:12px}
+.trend-stats div{display:flex;justify-content:space-between;gap:6px;align-items:baseline;border-bottom:1px solid var(--line);padding:2px 0}
+.trend-stats div:last-child{border-bottom:0}
+.trend-stats span{color:var(--muted);font-size:11px}
+.trend-stats b{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:12px;text-align:right}
+.trend .chip{font-size:12px;min-height:26px;padding:1px 10px}
+.trend>label{margin:0}
 .searchbar{position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0 8px;margin:-6px 0 -4px}
 .searchbar input{font-size:17px;min-height:48px;background:var(--surface);border-width:2px}
 .searchbar input:focus{border-color:var(--accent);outline:none}
@@ -361,16 +368,16 @@ function trendHtml(g){
     sr.pts.forEach(function(p){if(p[0]>=from){lo=Math.min(lo,p[1]);hi=Math.max(hi,p[1]);}});
   });
   if(hi===lo){hi=lo*1.1+1;lo=Math.max(0,lo*0.9-1);}else{var pad=(hi-lo)*0.12;hi+=pad;lo=Math.max(0,lo-pad);}
-  var W=320,H=150,L=40,R=10,T=8,B=20;
+  var W=320,H=96,L=34,R=8,T=6,B=16;
   function x(d){return L+(W-L-R)*(d-from)/(end-from);}
   function y(v){return T+(H-T-B)*(1-(v-lo)/(hi-lo));}
   var grid="";
-  for(var k=0;k<=3;k++){var gv=lo+(hi-lo)*k/3;grid+='<line class="trend-grid" x1="'+L+'" x2="'+(W-R)+'" y1="'+y(gv)+'" y2="'+y(gv)+'"/><text class="trend-text" x="'+(L-4)+'" y="'+(y(gv)+3)+'" text-anchor="end">'+short(gv)+'</text>';}
+  for(var k=0;k<=2;k++){var gv=lo+(hi-lo)*k/2;grid+='<line class="trend-grid" x1="'+L+'" x2="'+(W-R)+'" y1="'+y(gv)+'" y2="'+y(gv)+'"/><text class="trend-text" x="'+(L-4)+'" y="'+(y(gv)+3)+'" text-anchor="end">'+short(gv)+'</text>';}
   var lines=series.map(function(sr){
     var s0=Math.max(from,sr.start),v=valueAt(sr,s0),d="M"+x(s0)+" "+y(v);
     sr.pts.forEach(function(p){if(p[0]>s0){d+=" H"+x(p[0])+" V"+y(p[1]);v=p[1];}});
     d+=" H"+x(sr.end);
-    return '<path class="trend-line s'+sr.shop+'" d="'+d+'"/><circle class="trend-dot f'+sr.shop+'" cx="'+x(sr.end)+'" cy="'+y(v)+'" r="4"/>';
+    return '<path class="trend-line s'+sr.shop+'" d="'+d+'"/><circle class="trend-dot f'+sr.shop+'" cx="'+x(sr.end)+'" cy="'+y(v)+'" r="3.5"/>';
   }).join("");
   var id="t"+(trendSeq++);
   TREND[id]={series:series,from:from,end:end,L:L,R:R,W:W};
@@ -379,18 +386,18 @@ function trendHtml(g){
   var legend=series.map(function(sr){return '<span><i class="b'+sr.shop+'"></i>'+esc(shopName(sr.shop))+' <b class="num">'+yen(sr.pts[sr.pts.length-1][1])+'</b></span>';}).join("");
   var fromTop=st.hi>0?Math.round((st.now-st.hi)/st.hi*100):0;
   var stats='<div class="trend-stats">'+
-    '<div class="fig"><span>'+(covered>=trendDays?trendDays+"日前から":dayLabel(Math.max(from,main.start))+"（記録開始）から")+'</span><b>'+(diff?signed(diff)+" "+(st.base?(diff>0?"+":"")+Math.round(diff/st.base*100)+"%":""):"変化なし")+'</b></div>'+
-    '<div class="fig"><span>この期間の最高値</span><b>'+yen(st.hi)+'<span class="note">（'+dayLabel(st.hiDay)+'）</span></b></div>'+
-    '<div class="fig"><span>最高値と比べて</span><b>'+(fromTop<0?'<span class="neg">'+fromTop+"%</span>":"今が最高値")+'</b></div>'+
-    '<div class="fig"><span>直近の向き</span><b>'+(st.dir?(st.dir>0?"上昇":"下落")+" "+st.run+"回連続<span class=\"note\">（"+dayLabel(st.since)+"〜）</span>":"動きなし")+'</b></div></div>';
-  return '<div class="trend" data-trend="'+id+'"><label>買取価格の推移（'+esc(shopName(main.shop))+'の数字）</label>'+
-    '<div class="chips js-trend-days">'+TREND_DAYS.map(function(t){return '<button type="button" class="chip" data-k="'+t[0]+'" aria-pressed="'+(trendDays===t[0])+'">'+t[1]+'</button>';}).join("")+'</div>'+
-    stats+
+    '<div><span>'+(covered>=trendDays?trendDays+"日前から":dayLabel(Math.max(from,main.start))+"（記録開始）から")+'</span><b>'+(diff?signed(diff)+" "+(st.base?(diff>0?"+":"")+Math.round(diff/st.base*100)+"%":""):"変化なし")+'</b></div>'+
+    '<div><span>この期間の最高値</span><b>'+yen(st.hi)+'<span class="note">（'+dayLabel(st.hiDay)+'）</span></b></div>'+
+    '<div><span>最高値と比べて</span><b>'+(fromTop<0?'<span class="neg">'+fromTop+"%</span>":"今が最高値")+'</b></div>'+
+    '<div><span>直近の向き</span><b>'+(st.dir?(st.dir>0?"上昇":"下落")+" "+st.run+"回連続<span class=\"note\">（"+dayLabel(st.since)+"〜）</span>":"動きなし")+'</b></div></div>';
+  return '<div class="trend" data-trend="'+id+'"><div class="trend-head"><label>買取価格の推移</label>'+
+    '<div class="chips js-trend-days">'+TREND_DAYS.map(function(t){return '<button type="button" class="chip" data-k="'+t[0]+'" aria-pressed="'+(trendDays===t[0])+'">'+t[1]+'</button>';}).join("")+'</div></div>'+
     '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="店ごとの買取価格の推移">'+grid+lines+
       '<line class="trend-cross" x1="0" x2="0" y1="'+T+'" y2="'+(H-B)+'" visibility="hidden"/>'+
       '<text class="trend-text" x="'+L+'" y="'+(H-5)+'">'+dayLabel(from)+'</text><text class="trend-text" x="'+(W-R)+'" y="'+(H-5)+'" text-anchor="end">'+dayLabel(end)+'</text></svg>'+
     '<div class="trend-legend">'+legend+'</div>'+
-    '<div class="trend-tip note">グラフをなぞると、その日の買取価格が出ます。記録は'+dayLabel(first)+'からです。</div>'+
+    '<div class="note" style="font-size:11px;margin-top:2px">'+esc(shopName(main.shop))+'の動き</div>'+stats+
+    '<div class="trend-tip note">グラフをなぞると、その日の価格が出ます（記録は'+dayLabel(first)+'から）。</div>'+
     '</div>';
 }
 /* グラフをなぞったとき：縦の線と、その日の店ごとの買取価格を出す */
