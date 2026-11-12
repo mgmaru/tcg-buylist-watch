@@ -171,10 +171,11 @@ class SiteTest(unittest.TestCase):
                        "2026-11-11T05:00:00+09:00")
             out = site.build_data(data, min_buy=1000)
             # 買取が少額の行は載せない。ただし、他店が買い取っているカードは買取なしの店の行も載せる
-            self.assertEqual([(i[0], i[1], i[7], i[8]) for i in out["items"]], [(0, "1", 50000, 0), (1, "9", 0, 30000)])
-            kinds = {(m[3], m[2]) for m in out["movers"]}
-            self.assertEqual(kinds, {("スターミー", "up"), ("ゴンベ", "removed")})  # 少額の変化は載せない
-            self.assertEqual(out["history"], {"0:1": [["", 20000], ["2026-11-11", 50000]]})
+            # 値動きのあったカード（id 2）は少額でも載せる
+            self.assertEqual([(i[0], i[1], i[7], i[8]) for i in out["items"]], [(0, "1", 50000, 0), (0, "2", 600, 0), (1, "9", 0, 30000)])
+            moves = {(m[2], m[7], m[8]) for m in out["movers"]}
+            self.assertEqual(moves, {("up", 20000, 50000), ("up", 500, 600), ("removed", 9000, 0)})  # 少額の値上げも載せる
+            self.assertEqual(out["history"], {"0:1": [["", 20000], ["2026-11-11", 50000]], "0:2": [["", 500], ["2026-11-11", 600]]})
             self.assertEqual(out["cross"][0][10], 20000)
             self.assertEqual(out["generated_at"], "2026-11-11T05:00:00+09:00")
 
