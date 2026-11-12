@@ -78,7 +78,8 @@ def build_data(data_dir: Path, min_buy: int = 1000, cross_limit: int = 2000) -> 
         prices = loaded[name]
         meta_path = src_dir / "meta.json"
         meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
-        shops.append({"id": name, "fetched_at": meta.get("fetched_at", ""), "count": len(prices), "held": meta.get("held")})
+        shops.append({"id": name, "fetched_at": meta.get("fetched_at", ""), "since": meta.get("first_fetched_at", ""),
+                      "count": len(prices), "held": meta.get("held")})
         if not prices:
             continue
         changes = read_changes(src_dir)
@@ -114,5 +115,11 @@ def build(data_dir: Path, web_dir: Path, out_dir: Path, min_buy: int = 1000) -> 
         shutil.rmtree(out_dir)
     shutil.copytree(web_dir, out_dir)
     data = build_data(data_dir, min_buy=min_buy)
-    (out_dir / "data.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+    def write(name: str, value) -> None:
+        (out_dir / name).write_text(json.dumps(value, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+    # 価格の履歴は日がたつほど増えるので、別のファイルにする。ページは買取表を先に表示し、履歴はあとから読む
+    write("history.json", data["history"])
+    write("data.json", {k: v for k, v in data.items() if k != "history"})
     return data

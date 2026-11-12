@@ -324,6 +324,18 @@ class SiteTest(unittest.TestCase):
             self.assertEqual(out["history"], {"0:1": [["", 20000], ["2026-11-11", 50000]], "0:2": [["", 500], ["2026-11-11", 600]]})
             self.assertEqual(out["cross"][0][10], 20000)
             self.assertEqual(out["generated_at"], "2026-11-11T05:00:00+09:00")
+            self.assertEqual(out["shops"][0]["since"], "2026-11-10T05:00:00+09:00")  # 記録を始めた日時は最初の取得のまま
+
+    def test_build_writes_history_to_its_own_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data, web, out = Path(tmp) / "data", Path(tmp) / "web", Path(tmp) / "out"
+            web.mkdir()
+            (web / "index.html").write_text("<html></html>", encoding="utf-8")
+            store.save(data, "cardrush", [price("1", buy=20000)], "2026-11-10T05:00:00+09:00")
+            store.save(data, "cardrush", [price("1", buy=50000)], "2026-11-11T05:00:00+09:00")
+            site.build(data, web, out)
+            self.assertNotIn("history", json.loads((out / "data.json").read_text(encoding="utf-8")))
+            self.assertEqual(json.loads((out / "history.json").read_text(encoding="utf-8")), {"0:1": [["", 20000], ["2026-11-11", 50000]]})
 
     def test_build_copies_page_and_writes_json(self):
         with tempfile.TemporaryDirectory() as tmp:

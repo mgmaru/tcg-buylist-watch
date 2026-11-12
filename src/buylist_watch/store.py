@@ -198,6 +198,9 @@ def save(data_dir: Path, source: str, prices: Iterable[Price], fetched_at: str, 
             w = csv.DictWriter(f, fieldnames=CHANGE_FIELDS, lineterminator="\n")
             w.writeheader()
             w.writerows(changes)
-    meta = {"source": source, "fetched_at": fetched_at, "count": len(new), "changes": len(changes), "partial": partial}
+    # first_fetched_at は記録を始めた日時。価格の推移を「いつから見ているか」に使う
+    first = _read_meta(src_dir).get("first_fetched_at") or fetched_at
+    meta = {"source": source, "first_fetched_at": first, "fetched_at": fetched_at, "count": len(new), "changes": len(changes),
+            "partial": partial}
     _write_meta(src_dir, meta)  # 保存できたので、見送りの記録（held）は消える
     return meta
