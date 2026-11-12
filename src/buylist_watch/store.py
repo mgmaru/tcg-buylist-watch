@@ -127,14 +127,26 @@ def merge_changes(earlier: list[dict], later: list[dict]) -> list[dict]:
     return list(merged.values())
 
 
-def save(data_dir: Path, source: str, prices: Iterable[Price], fetched_at: str, partial: bool = False) -> dict:
-    """保存して、件数と変化の数を返す。partial は一部だけ取得した試し実行のとき True。"""
+SHRINK_LIMIT = 0.7  # 件数が前回のこの割合を下回ったら、取得の失敗か店側の作業中を疑う
+
+
+def save(data_dir: Path, source: str, prices: Iterable[Price], fetched_at: str, partial: bool = False, force: bool = False) -> dict:
+    """保存して、件数と変化の数を返す。partial は一部だけ取得した試し実行のとき True。
+
+    件数が前回から大きく減ったときは保存しない（大量の「掲載終了」を誤って記録しないため）。
+    本当に減ったと確かめたうえで保存するときは force=True にする。
+    """
     src_dir = data_dir / source
     latest = src_dir / "latest.csv"
     new = dedupe(prices)
     if not new:
         raise ValueError(f"{source}: 1件も取得できませんでした。前回のデータは残します")
     old = read_latest(latest)
+    if old and not partial and not force and len(new) < len(old) * SHRINK_LIMIT:
+        raise ValueError(
+            f"{source}: 件数が {len(old)}件 から {len(new)}件 に大きく減りました。前回のデータを残します"
+            "（店側の更新中かもしれません。確かめてから --force で保存できます）"
+        )
     changes = diff(old, new, removals=not partial) if old else []
     if partial and old:
         # 試し実行では、取得しなかった行を前回のまま残す

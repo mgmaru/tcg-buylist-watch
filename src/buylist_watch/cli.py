@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -15,18 +16,23 @@ JST = timezone(timedelta(hours=9))
 
 def cmd_fetch(args) -> int:
     names = list(SOURCES) if args.source == "all" else [args.source]
-    fetcher = Fetcher(delay=args.delay)
     fetched_at = datetime.now(JST).isoformat(timespec="seconds")
-    failed = []
-    for name in names:
+
+    def one(name: str) -> bool:
         try:
-            prices = list(SOURCES[name].fetch(fetcher, max_pages=args.max_pages))
-            meta = store.save(Path(args.data_dir), name, prices, fetched_at, partial=args.max_pages is not None)
-            print(f"{name}: {meta['count']}件を保存、前回からの変化 {meta['changes']}件")
+            # 店ごとに別の Fetcher を持つ。取得の間隔は店ごとに守られる
+            prices = list(SOURCES[name].fetch(Fetcher(delay=args.delay), max_pages=args.max_pages))
+            meta = store.save(Path(args.data_dir), name, prices, fetched_at, partial=args.max_pages is not None, force=args.force)
+            print(f"{name}: {meta['count']}件を保存、前回からの変化 {meta['changes']}件", flush=True)
+            return True
         except Exception as e:  # 1店の失敗でほかの店を止めない
-            failed.append(name)
-            print(f"{name}: 失敗しました: {e}", file=sys.stderr)
-    return 1 if failed else 0
+            print(f"{name}: 失敗しました: {e}", file=sys.stderr, flush=True)
+            return False
+
+    # 店は別々のサイトなので同時に取りに行く。保存先も店ごとに分かれているのでぶつからない
+    with ThreadPoolExecutor(max_workers=max(1, min(args.jobs, len(names)))) as pool:
+        results = list(pool.map(one, names))
+    return 0 if all(results) else 1
 
 
 def cmd_compare(args) -> int:
@@ -67,7 +73,9 @@ def main(argv: list[str] | None = None) -> int:
     f = sub.add_parser("fetch", help="買取表を取得して保存する")
     f.add_argument("--source", default="all", choices=["all", *SOURCES])
     f.add_argument("--max-pages", type=int, default=None, help="試し実行用。ページ数を制限する")
-    f.add_argument("--delay", type=float, default=1.5, help="1回の取得ごとに空ける秒数")
+    f.add_argument("--delay", type=float, default=1.5, help="1回の取得ごとに空ける秒数（店ごと）")
+    f.add_argument("--force", action="store_true", help="件数が前回から大きく減っていても保存する")
+    f.add_argument("--jobs", type=int, default=len(SOURCES), help="同時に取得する店の数。1にすると順番に取得する")
     f.set_defaults(func=cmd_fetch)
 
     c = sub.add_parser("compare", help="ある店の買取価格が別の店の販売価格より高いカードを探す")
