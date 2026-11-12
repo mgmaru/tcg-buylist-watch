@@ -93,6 +93,10 @@ svg.chart{width:100%;height:auto;display:block}
 .quick{display:grid;grid-template-columns:1fr 1fr 1fr 44px;border-top:1px solid var(--line)}
 .quick a,.quick button{display:flex;align-items:center;justify-content:center;text-align:center;min-height:46px;padding:4px 2px;font-size:13px;font-weight:700;line-height:1.2;text-decoration:none;color:var(--accent);background:none;border:0;border-left:1px solid var(--line);border-radius:0}
 .quick a:first-child{border-left:0}
+.quick2{grid-template-columns:1fr 1fr}
+.quick2 a{min-height:38px;font-weight:500}
+.quick-title{font-size:11px;color:var(--muted);padding:5px 12px 3px;border-top:1px solid var(--line)}
+.quick-title+.quick{border-top:0}
 .quick button[aria-pressed=true]{color:var(--warn)}
 .detail{border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .recent-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-bottom:4px}
@@ -296,6 +300,7 @@ function marketLinks(g){
     onSale:"https://jp.mercari.com/search?keyword="+kw+"&status=on_sale&sort=created_time&order=desc"+(cap?"&price_max="+cap:""),
     sold:"https://jp.mercari.com/search?keyword="+kw+"&status=sold_out&sort=created_time&order=desc",
     yahoo:"https://auctions.yahoo.co.jp/closedsearch/closedsearch?p="+kw+"&va="+kw+"&b=1&n=50",
+    yahooOn:"https://auctions.yahoo.co.jp/search/search?p="+kw+"&va="+kw+"&b=1&n=50&s1=new&o1=d"+(cap?"&max="+cap+"&price_type=currentprice":""),
     yahooFlea:"https://paypayfleamarket.yahoo.co.jp/search/"+kw+"?open=1"+(cap?"&maxPrice="+cap:""),
     rush:"https://cardrush.media/pokemon/buying_prices?name="+encodeURIComponent(g.name),
     hare:"https://www.hareruya2.com/search?q="+kw,
@@ -321,8 +326,7 @@ function detailHtml(g,idx){
     '<div class="card-in"><div><label for="p'+idx+'">見つけた出品の価格（円）</label><input type="number" inputmode="numeric" min="0" id="p'+idx+'" class="js-price" value="'+esc(prices[g.key]===undefined?"":prices[g.key])+'"></div>'+
       '<div class="outs js-outs">'+o.html+'</div></div>'+
     (hist?'<div><label>買取価格の推移</label>'+hist+'</div>':'')+
-    '<div class="links"><a class="js-link" href="'+L.yahooFlea+'" target="_blank" rel="noopener">Yahoo!フリマの出品'+(L.cap?"（"+yen(L.cap)+"まで）":"")+'</a>'+
-      '<a class="js-link" href="'+L.rush+'" target="_blank" rel="noopener">カードラッシュの買取表</a>'+
+    '<div class="links"><a class="js-link" href="'+L.rush+'" target="_blank" rel="noopener">カードラッシュの買取表</a>'+
       '<a class="js-link" href="'+L.hare+'" target="_blank" rel="noopener">晴れる屋2で探す</a>'+
       '<a class="js-link" href="'+L.yuyu+'" target="_blank" rel="noopener">遊々亭の買取表</a></div>'+
     '</div>';
@@ -338,11 +342,16 @@ function cardHtml(g,idx){
     '<div class="hit-limits"><div class="lim-title">フリマでいくら以下なら買ってよいか</div>'+
       '<div class="lim"><span>慎重に買うなら</span><b>'+limitText(buy,RATE.b)+'</b><span>店の査定が「傷あり（B）」でも黒字</span></div>'+
       '<div class="lim"><span>ふつうに買うなら</span><b>'+limitText(buy,RATE.am)+'</b><span>査定が「小傷（A-）」なら黒字</span></div></div>'+
+    '<div class="quick-title">出品を探す'+(L.cap?"（"+yen(L.cap)+"まで）":"（値段で絞らない）")+'</div>'+
     '<div class="quick">'+
-      '<a class="js-link" href="'+L.onSale+'" target="_blank" rel="noopener"><span>メルカリ<br>新着'+(L.cap?'<small>'+yen(L.cap)+'まで</small>':'')+'</span></a>'+
-      '<a class="js-link" href="'+L.sold+'" target="_blank" rel="noopener">メルカリ<br>売り切れ</a>'+
-      '<a class="js-link" href="'+L.yahoo+'" target="_blank" rel="noopener">ヤフオク<br>落札相場</a>'+
+      '<a class="js-link" href="'+L.onSale+'" target="_blank" rel="noopener">メルカリ<br>新着</a>'+
+      '<a class="js-link" href="'+L.yahooFlea+'" target="_blank" rel="noopener">Yahoo!<br>フリマ</a>'+
+      '<a class="js-link" href="'+L.yahooOn+'" target="_blank" rel="noopener">ヤフオク<br>出品中</a>'+
       '<button type="button" class="js-pin" aria-pressed="'+pinned+'" aria-label="'+(pinned?"ウォッチから外す":"ウォッチに入れる")+'">'+(pinned?"★":"☆")+'</button></div>'+
+    '<div class="quick-title">相場を見る（絞り込みなし）</div>'+
+    '<div class="quick quick2">'+
+      '<a class="js-link" href="'+L.sold+'" target="_blank" rel="noopener">メルカリ 売り切れ</a>'+
+      '<a class="js-link" href="'+L.yahoo+'" target="_blank" rel="noopener">ヤフオク 落札相場</a></div>'+
     (g.open?detailHtml(g,idx):'')+
     '</article>';
 }
