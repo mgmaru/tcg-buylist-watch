@@ -194,13 +194,64 @@ class ShrinkGuardTest(unittest.TestCase):
             data = Path(tmp)
             full = [price(str(i), buy=1000) for i in range(10)]
             store.save(data, "cardrush", full, "2026-11-11T09:00:00+09:00")
-            with self.assertRaises(ValueError):
+            with self.assertRaises(store.ShrinkError):
                 store.save(data, "cardrush", full[:5], "2026-11-12T09:00:00+09:00")
             self.assertEqual(len(store.read_latest(data / "cardrush" / "latest.csv")), 10)  # 前回のまま
             self.assertFalse((data / "cardrush" / "changes").exists())
+            meta = json.loads((data / "cardrush" / "meta.json").read_text(encoding="utf-8"))
+            self.assertEqual(meta["fetched_at"], "2026-11-11T09:00:00+09:00")  # 取得日時は保存できたときのまま
+            self.assertEqual(meta["held"], {"since": "2026-11-12T09:00:00+09:00", "last": "2026-11-12T09:00:00+09:00", "count": 5, "times": 1})
             store.save(data, "cardrush", full[:8], "2026-11-12T09:00:00+09:00")  # 少しの減少は保存する
             meta = store.save(data, "cardrush", full[:3], "2026-11-12T12:00:00+09:00", force=True)
             self.assertEqual(meta["count"], 3)
+
+
+class ShrinkRecoveryTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.data = Path(self.tmp.name)
+        self.full = [price(str(i), buy=1000) for i in range(10)]
+        store.save(self.data, "cardrush", self.full, "2026-11-11T09:00:00+09:00")
+
+    def meta(self):
+        return json.loads((self.data / "cardrush" / "meta.json").read_text(encoding="utf-8"))
+
+    def test_hold_is_cleared_when_the_list_comes_back(self):
+        with self.assertRaises(store.ShrinkError):
+            store.save(self.data, "cardrush", self.full[:5], "2026-11-12T11:40:00+09:00")
+        store.save(self.data, "cardrush", self.full, "2026-11-12T11:50:00+09:00")
+        self.assertNotIn("held", self.meta())
+        self.assertFalse((self.data / "cardrush" / "changes").exists())  # 掲載終了は1件も記録されない
+
+    def test_shrink_that_lasts_a_day_is_accepted(self):
+        for at in ("2026-11-12T09:00:00+09:00", "2026-11-12T21:00:00+09:00"):
+            with self.assertRaises(store.ShrinkError):
+                store.save(self.data, "cardrush", self.full[:5], at)
+        self.assertEqual(self.meta()["held"]["times"], 2)
+        meta = store.save(self.data, "cardrush", self.full[:5], "2026-11-13T09:00:00+09:00")  # 24時間続いたので保存する
+        self.assertEqual((meta["count"], meta["changes"]), (5, 5))
+        self.assertNotIn("held", self.meta())
+
+    def test_fetch_waits_and_retries_when_the_list_is_half_updated(self):
+        from unittest import mock
+
+        from buylist_watch import cli
+
+        full = self.full
+
+        class Shop:
+            calls = 0
+
+            def fetch(self, fetcher, max_pages=None):
+                Shop.calls += 1
+                yield from (full[:5] if Shop.calls == 1 else full)  # 1回目だけ更新途中の状態
+
+        with mock.patch.dict(cli.SOURCES, {"cardrush": Shop()}, clear=True), mock.patch("time.sleep") as sleep:
+            code = cli.main(["--data-dir", str(self.data), "fetch", "--delay", "0", "--shrink-wait", "600"])
+        self.assertEqual((code, Shop.calls), (0, 2))
+        sleep.assert_called_once_with(600)
+        self.assertNotIn("held", self.meta())
 
 
 class SameDayTest(unittest.TestCase):

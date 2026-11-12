@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import json
+from datetime import datetime
 from collections.abc import Iterable
 from dataclasses import asdict
 from pathlib import Path
@@ -128,13 +129,44 @@ def merge_changes(earlier: list[dict], later: list[dict]) -> list[dict]:
 
 
 SHRINK_LIMIT = 0.7  # 件数が前回のこの割合を下回ったら、取得の失敗か店側の作業中を疑う
+SHRINK_ACCEPT_HOURS = 24  # 減った状態がこの時間続いたら、店が本当に掲載を減らしたとみなして保存する
+
+
+class ShrinkError(ValueError):
+    """件数が急に減ったので保存を見送った。少し待って取り直すと直ることが多い。"""
+
+
+def _read_meta(src_dir: Path) -> dict:
+    path = src_dir / "meta.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def _write_meta(src_dir: Path, meta: dict) -> None:
+    (src_dir / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _hold(src_dir: Path, source: str, old_count: int, new_count: int, fetched_at: str) -> bool:
+    """保存の見送りを meta.json に記録する。減った状態が十分長く続いていたら True（保存してよい）を返す。"""
+    meta = _read_meta(src_dir)
+    held = meta.get("held") or {}
+    # 前に見送ったときと件数が大きく違えば、別の出来事として数え直す
+    same = held and abs(held["count"] - new_count) <= max(old_count * 0.05, 1)
+    since = held["since"] if same else fetched_at
+    hours = (datetime.fromisoformat(fetched_at) - datetime.fromisoformat(since)).total_seconds() / 3600
+    if same and hours >= SHRINK_ACCEPT_HOURS:
+        return True
+    meta["held"] = {"since": since, "last": fetched_at, "count": new_count, "times": (held.get("times", 0) if same else 0) + 1}
+    _write_meta(src_dir, meta)
+    return False
 
 
 def save(data_dir: Path, source: str, prices: Iterable[Price], fetched_at: str, partial: bool = False, force: bool = False) -> dict:
     """保存して、件数と変化の数を返す。partial は一部だけ取得した試し実行のとき True。
 
-    件数が前回から大きく減ったときは保存しない（大量の「掲載終了」を誤って記録しないため）。
-    本当に減ったと確かめたうえで保存するときは force=True にする。
+    件数が前回から大きく減ったときは保存せず、ShrinkError を出す（店が買取表を入れ替えている途中の
+    状態を拾って、大量の「掲載終了」を誤って記録しないため）。見送ったことは meta.json の held に残す。
+    減った状態が SHRINK_ACCEPT_HOURS 時間続いたら、店が本当に減らしたとみなして自動で保存する。
+    すぐに保存したいときは force=True にする。
     """
     src_dir = data_dir / source
     latest = src_dir / "latest.csv"
@@ -143,10 +175,11 @@ def save(data_dir: Path, source: str, prices: Iterable[Price], fetched_at: str, 
         raise ValueError(f"{source}: 1件も取得できませんでした。前回のデータは残します")
     old = read_latest(latest)
     if old and not partial and not force and len(new) < len(old) * SHRINK_LIMIT:
-        raise ValueError(
-            f"{source}: 件数が {len(old)}件 から {len(new)}件 に大きく減りました。前回のデータを残します"
-            "（店側の更新中かもしれません。確かめてから --force で保存できます）"
-        )
+        if not _hold(src_dir, source, len(old), len(new), fetched_at):
+            raise ShrinkError(
+                f"{source}: 件数が {len(old)}件 から {len(new)}件 に大きく減りました。前回のデータを残します"
+                "（店が買取表を更新している途中かもしれません）"
+            )
     changes = diff(old, new, removals=not partial) if old else []
     if partial and old:
         # 試し実行では、取得しなかった行を前回のまま残す
@@ -166,5 +199,5 @@ def save(data_dir: Path, source: str, prices: Iterable[Price], fetched_at: str, 
             w.writeheader()
             w.writerows(changes)
     meta = {"source": source, "fetched_at": fetched_at, "count": len(new), "changes": len(changes), "partial": partial}
-    (src_dir / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _write_meta(src_dir, meta)  # 保存できたので、見送りの記録（held）は消える
     return meta

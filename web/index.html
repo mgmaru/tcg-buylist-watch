@@ -108,6 +108,7 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
 .stamp-item b{display:block;font-size:17px;color:var(--ink);font-family:var(--font-num);font-variant-numeric:tabular-nums}
 .stamp-item.old{border-color:#c2410c}
 .stamp-item.old .ago{color:#c2410c;font-weight:700}
+.stamp .held{margin-top:6px;color:#c2410c}
 [hidden]{display:none !important}
 </style>
 </head>
@@ -447,8 +448,10 @@ fetch("data.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw new Error(
     var t=new Date(s.fetched_at),h=(Date.now()-t.getTime())/3600000,ok=!isNaN(h);
     var ago=!ok?"":h<1?"1時間以内":h<24?Math.floor(h)+"時間前":Math.floor(h/24)+"日前";
     var day=ok?(t.getMonth()+1)+"/"+t.getDate()+" "+("0"+t.getHours()).slice(-2)+":"+("0"+t.getMinutes()).slice(-2):s.fetched_at;
-    return '<div class="stamp-item'+(ok&&h>=24?" old":"")+'"><span>'+esc(SHOP_LABEL[s.id]||s.id)+'</span><b>'+esc(day)+'</b><span class="ago">'+ago+(ok&&h>=24?"（古い）":"")+'</span></div>';
-  }).join("")+'</div>';
+    return '<div class="stamp-item'+(ok&&h>=24||s.held?" old":"")+'"><span>'+esc(SHOP_LABEL[s.id]||s.id)+'</span><b>'+esc(day)+'</b><span class="ago">'+ago+(ok&&h>=24?"（古い）":"")+'</span></div>';
+  }).join("")+'</div>'+d.shops.filter(function(s){return s.held;}).map(function(s){
+    return '<p class="note held">'+esc(SHOP_LABEL[s.id]||s.id)+'：'+esc(s.held.last.slice(5,16).replace("-","/").replace("T"," "))+' の取得は、件数が '+s.held.count.toLocaleString()+'件 に急に減っていたため保存していません（店が買取表を更新している途中のことがあります）。上の日時のデータを表示しています。</p>';
+  }).join("");
   if(!d.movers.some(function(m){return m[2]==="up";}))moverKind="all";
   renderCheck();renderMovers();renderCross();
 }).catch(function(){
