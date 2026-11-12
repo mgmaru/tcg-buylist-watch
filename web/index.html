@@ -130,7 +130,11 @@ a{color:var(--accent)}
 .recent{display:flex;flex-wrap:wrap;gap:6px}
 .recent .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
-.capbox{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.capbox{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.capbox[open]{display:flex;flex-direction:column;gap:6px}
+.capbox summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.capbox summary b{color:var(--ink)}
+.capbox label{margin:4px 0 0}
 .cap-budget{display:flex;align-items:center;gap:8px}
 .cap-budget label{flex:none;margin:0}
 .cap-budget input{min-height:36px;padding:5px 8px}
@@ -170,12 +174,16 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
       <div class="recent-head"><span>最近調べたカード（5件まで。古いものから消えます）</span><button type="button" id="recent-clear">消す</button></div>
       <div class="recent" id="recent"></div>
     </div>
-    <div class="capbox">
-      <label>フリマを開くときの値段の絞り込み</label>
+    <details class="capbox">
+      <summary>フリマを開くときの絞り込み：<b id="cap-summary"></b></summary>
+      <label>値段</label>
       <div class="chips" id="cap-chips" role="group" aria-label="フリマを開くときの値段の絞り込み"></div>
       <div class="cap-budget"><label for="s-budget">予算の上限（円）</label><input type="number" id="s-budget" inputmode="numeric" min="0" placeholder="空なら使わない"></div>
       <p class="note" id="cap-note"></p>
-    </div>
+      <label>カードの状態</label>
+      <div class="chips" id="cond-chips" role="group" aria-label="フリマを開くときの状態の絞り込み"></div>
+      <p class="note" id="cond-note"></p>
+    </details>
     <p class="note" id="check-info"></p>
     <div class="list" id="cards"></div>
     <button type="button" id="more" hidden>さらに表示</button>
@@ -436,15 +444,42 @@ function capFor(g){
   if(budget>0)v=v>0?Math.min(v,budget):budget;
   return v>0?v:0;
 }
+/* ===== フリマごとの違いを吸収する表 =====
+   アプリの中では、状態を共通の段階（COND_LEVELS）で選ぶ。
+   各フリマが「検索語・値段の上限・状態」をURLにどう書くかは、この MARKETS だけが知っている。
+   フリマを増やすときは、ここに1つ足す。あるフリマで表せない段階は cond に書かない（その段階では状態を指定せずに開く）。
+   状態の値は、実際に各サイトで絞り込んだときのURLで確かめたもの（2026-11-12）。 */
+var COND_LEVELS=[["any","指定なし"],["good","目立った傷なし以上"],["near","未使用に近い以上"],["new","新品・未使用のみ"]];
+var MARKETS={
+  mercari:{
+    label:"メルカリ",
+    cond:{good:"1,2,3",near:"1,2","new":"1"},  // 1:新品、未使用 2:未使用に近い 3:目立った傷や汚れなし
+    url:function(kw,cap,cond){return "https://jp.mercari.com/search?keyword="+kw+"&status=on_sale&sort=created_time&order=desc"+(cap?"&price_max="+cap:"")+(cond?"&item_condition_id="+encodeURIComponent(cond):"");}
+  },
+  yahooFlea:{
+    label:"Yahoo!フリマ",
+    cond:{good:"NEW,USED10,USED20",near:"NEW,USED10","new":"NEW"},  // NEW:未使用 USED10:未使用に近い USED20:目立った傷や汚れなし
+    url:function(kw,cap,cond){return "https://paypayfleamarket.yahoo.co.jp/search/"+kw+"?open=1"+(cap?"&maxPrice="+cap:"")+(cond?"&conditions="+encodeURIComponent(cond):"");}
+  },
+  yahooAuction:{
+    label:"ヤフオク",
+    cond:{good:"4,3,1",near:"3,1","new":"1"},  // 1:未使用 3:未使用に近い 4:目立った傷や汚れなし
+    url:function(kw,cap,cond){return "https://auctions.yahoo.co.jp/search/search?p="+kw+"&va="+kw+"&b=1&n=50&s1=new&o1=d"+(cap?"&max="+cap+"&price_type=currentprice":"")+(cond?"&istatus="+encodeURIComponent(cond):"");}
+  }
+};
+function condLevel(){return settings.cond||"good";}
+function condLabel(){var k=condLevel();for(var i=0;i<COND_LEVELS.length;i++){if(COND_LEVELS[i][0]===k)return COND_LEVELS[i][1];}return "";}
+function marketUrl(name,kw,cap){var m=MARKETS[name];return m.url(kw,cap,m.cond[condLevel()]||"");}
 function marketLinks(g){
   var kw=encodeURIComponent(searchWord(g)),cap=capFor(g);
   return {
     cap:cap,
-    onSale:"https://jp.mercari.com/search?keyword="+kw+"&status=on_sale&sort=created_time&order=desc"+(cap?"&price_max="+cap:""),
+    onSale:marketUrl("mercari",kw,cap),
+    yahooOn:marketUrl("yahooAuction",kw,cap),
+    yahooFlea:marketUrl("yahooFlea",kw,cap),
+    // 相場を見るリンクは、値段でも状態でも絞らない
     sold:"https://jp.mercari.com/search?keyword="+kw+"&status=sold_out&sort=created_time&order=desc",
     yahoo:"https://auctions.yahoo.co.jp/closedsearch/closedsearch?p="+kw+"&va="+kw+"&b=1&n=50",
-    yahooOn:"https://auctions.yahoo.co.jp/search/search?p="+kw+"&va="+kw+"&b=1&n=50&s1=new&o1=d"+(cap?"&max="+cap+"&price_type=currentprice":""),
-    yahooFlea:"https://paypayfleamarket.yahoo.co.jp/search/"+kw+"?open=1"+(cap?"&maxPrice="+cap:""),
     rush:"https://cardrush.media/pokemon/buying_prices?name="+encodeURIComponent(g.name),
     hare:"https://www.hareruya2.com/search?q="+kw,
     yuyu:"https://yuyu-tei.jp/buy/poc/s/search?search_word="+encodeURIComponent(g.name)
@@ -493,13 +528,13 @@ function cardHtml(g,idx,inWatch){
     '<div class="hit-limits"><div class="lim-title">フリマでいくら以下なら買ってよいか</div>'+
       '<div class="lim"><span>慎重に買うなら</span><b>'+limitText(buy,RATE.b)+'</b><span>店の査定が「傷あり（B）」でも黒字</span></div>'+
       '<div class="lim"><span>ふつうに買うなら</span><b>'+limitText(buy,RATE.am)+'</b><span>査定が「小傷（A-）」なら黒字</span></div></div>'+
-    '<div class="quick-title">出品を探す'+(L.cap?"（"+yen(L.cap)+"まで）":"（値段で絞らない）")+'</div>'+
+    '<div class="quick-title">出品を探す（'+(L.cap?yen(L.cap)+"まで":"値段は絞らない")+"・"+(condLevel()==="any"?"状態は絞らない":esc(condLabel()))+'）</div>'+
     '<div class="quick">'+
       '<a class="js-link" href="'+L.onSale+'" target="_blank" rel="noopener">メルカリ<br>新着</a>'+
       '<a class="js-link" href="'+L.yahooFlea+'" target="_blank" rel="noopener">Yahoo!<br>フリマ</a>'+
       '<a class="js-link" href="'+L.yahooOn+'" target="_blank" rel="noopener">ヤフオク<br>出品中</a>'+
       '<button type="button" class="js-pin" aria-pressed="'+pinned+'" aria-label="'+(pinned?"ウォッチから外す":"ウォッチに入れる")+'"><b>'+(pinned?"★":"☆")+'</b>'+(pinned?"ウォッチ中":"ウォッチ")+'</button></div>'+
-    '<div class="quick-title">相場を見る（絞り込みなし）</div>'+
+    '<div class="quick-title">相場を見る（値段も状態も絞らない）</div>'+
     '<div class="quick quick2">'+
       '<a class="js-link" href="'+L.sold+'" target="_blank" rel="noopener">メルカリ 売り切れ</a>'+
       '<a class="js-link" href="'+L.yahoo+'" target="_blank" rel="noopener">ヤフオク 落札相場</a></div>'+
@@ -628,8 +663,14 @@ function renderCap(){
   var b=Number(settings.budget)||0;
   $("cap-note").textContent=CAP_NOTE[mode]+(mode==="budget"?(b>0?" いまは"+yen(b)+"までです。":" 金額が空なので、いまは絞っていません。"):mode!=="none"&&b>0?" 予算（"+yen(b)+"）を超える出品も外します。":"");
   $("s-budget").disabled=mode==="none";
+  var cond=condLevel();
+  $("cond-chips").innerHTML=COND_LEVELS.map(function(c){return '<button type="button" class="chip" data-k="'+c[0]+'" aria-pressed="'+(cond===c[0])+'">'+c[1]+'</button>';}).join("");
+  var capName="";CAP_MODES.forEach(function(m){if(m[0]===mode)capName=m[1];});
+  $("cap-summary").textContent=capName+(mode==="budget"&&b>0?"（"+yen(b)+"）":"")+"・"+(cond==="any"?"状態は指定なし":condLabel());
+  $("cond-note").textContent=cond==="any"?"状態で絞らずに開きます。":"出品者が選んだ状態が「"+condLabel()+"」の出品だけを開きます。状態は自己申告なので、控えめに書かれた美品は出ません。";
 }
 $("cap-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.cap=b.dataset.k;UserStore.set("settings",settings);renderCap();renderCheck();renderWatch();});
+$("cond-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.cond=b.dataset.k;UserStore.set("settings",settings);renderCap();renderCheck();renderWatch();});
 $("s-budget").addEventListener("input",function(){onSettings();renderCap();});
 $("s-ship").addEventListener("input",onSettings);$("s-kantei").addEventListener("change",onSettings);
 
