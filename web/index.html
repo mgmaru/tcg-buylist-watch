@@ -309,17 +309,19 @@ function chart(points){
 
 /* 売れた価格と出品を開くリンク。どれも人が画面で見るためのもので、自動では取得しない */
 /* フリマを開くときの値段の絞り込み。決め打ちにせず、自分で選ぶ */
-var CAP_MODES=[["none","絞らない"],["buy","買取価格まで"],["normal","ふつうの上限まで"],["safe","慎重の上限まで"]];
+var CAP_MODES=[["none","絞らない"],["buy","買取価格まで"],["normal","ふつうの上限まで"],["safe","慎重の上限まで"],["budget","予算で絞る"]];
 var CAP_NOTE={
   none:"値段で絞らずに、すべての出品を開きます。予算の上限も使いません。",
   buy:"買取価格より高い出品を外します。美品で持ち込んでも赤字になる出品だけが消えるので、取り逃がしはありません。",
   normal:"査定が「小傷（A-）」でも黒字になる値段までの出品だけを開きます。少し上の値段の美品は出ません。",
-  safe:"査定が「傷あり（B）」でも黒字になる値段までの出品だけを開きます。出てくる数はかなり減ります。"
+  safe:"査定が「傷あり（B）」でも黒字になる値段までの出品だけを開きます。出てくる数はかなり減ります。",
+  budget:"下の「予算の上限」に入れた金額までの出品だけを開きます。買取価格は見ません。"
 };
 function capFor(g){
   var buy=buyOf(g),mode=settings.cap||"buy",budget=Number(settings.budget)||0;
   var v=mode==="buy"?buy-extra():mode==="normal"?buy*RATE.am-extra():mode==="safe"?buy*RATE.b-extra():0;
   if(mode==="none")return 0;  // 「絞らない」は予算が入っていても絞らない
+  if(mode==="budget")return budget>0?budget:0;
   v=Math.floor(v);
   if(v<=0)v=0;  // 上限が出ないカードは、予算だけで絞る
   if(budget>0)v=v>0?Math.min(v,budget):budget;
@@ -513,7 +515,8 @@ function onSettings(){settings.ship=Number($("s-ship").value)||0;settings.kantei
 function renderCap(){
   var mode=settings.cap||"buy";
   $("cap-chips").innerHTML=CAP_MODES.map(function(m){return '<button type="button" class="chip" data-k="'+m[0]+'" aria-pressed="'+(mode===m[0])+'">'+m[1]+'</button>';}).join("");
-  $("cap-note").textContent=CAP_NOTE[mode]+(mode!=="none"&&Number(settings.budget)>0?" 予算（"+yen(Number(settings.budget))+"）を超える出品も外します。":"");
+  var b=Number(settings.budget)||0;
+  $("cap-note").textContent=CAP_NOTE[mode]+(mode==="budget"?(b>0?" いまは"+yen(b)+"までです。":" 金額が空なので、いまは絞っていません。"):mode!=="none"&&b>0?" 予算（"+yen(b)+"）を超える出品も外します。":"");
   $("s-budget").disabled=mode==="none";
 }
 $("cap-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.cap=b.dataset.k;save("checker.settings",settings);renderCap();renderCheck();renderWatch();});
