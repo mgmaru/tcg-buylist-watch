@@ -36,7 +36,7 @@ label{font-size:12px;color:var(--muted);display:block;margin-bottom:3px}
 input[type=text],input[type=number],input[type=search]{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 10px;min-height:42px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 button{font:inherit;font-weight:700;cursor:pointer;border-radius:7px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 12px;min-height:40px}
-nav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+nav{display:grid;grid-template-columns:1.5fr 1.1fr 1fr 1fr;gap:5px}
 nav a{text-align:center;padding:9px 4px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;font-weight:700;font-size:14px}
 nav a[aria-current=page]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -90,13 +90,20 @@ svg.chart{width:100%;height:auto;display:block}
 .lim span{display:block;font-size:11px;color:var(--muted)}
 .lim b{display:block;font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:16px}
 .lim-title{grid-column:1 / -1;font-size:12px;color:var(--muted);margin-bottom:-4px}
-.quick{display:grid;grid-template-columns:1fr 1fr 1fr 44px;border-top:1px solid var(--line)}
+.quick{display:grid;grid-template-columns:1fr 1fr 1fr 62px;border-top:1px solid var(--line)}
 .quick a,.quick button{display:flex;align-items:center;justify-content:center;text-align:center;min-height:46px;padding:4px 2px;font-size:13px;font-weight:700;line-height:1.2;text-decoration:none;color:var(--accent);background:none;border:0;border-left:1px solid var(--line);border-radius:0}
 .quick a:first-child{border-left:0}
 .quick2{grid-template-columns:1fr 1fr}
 .quick2 a{min-height:38px;font-weight:500}
 .quick-title{font-size:11px;color:var(--muted);padding:5px 12px 3px;border-top:1px solid var(--line)}
 .quick-title+.quick{border-top:0}
+.quick .js-pin{font-size:11px;flex-direction:column;gap:0}
+.quick .js-pin b{font-size:17px;line-height:1}
+.watch-strip{border-top:1px solid var(--line);padding:8px 12px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.watch-strip .since{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.watch-strip input{min-height:36px;padding:5px 8px;font-size:14px}
+.seen{color:var(--good);font-weight:700}
+#watch-count{font-weight:500;font-size:12px}
 .quick button[aria-pressed=true]{color:var(--warn)}
 .detail{border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .recent-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-bottom:4px}
@@ -130,6 +137,7 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
   </header>
   <nav aria-label="表示の切り替え">
     <a href="#check" data-view="check">買取を調べる</a>
+    <a href="#watch" data-view="watch">ウォッチ<span id="watch-count"></span></a>
     <a href="#movers" data-view="movers">値動き</a>
     <a href="#shops" data-view="shops">店の差</a>
   </nav>
@@ -164,6 +172,23 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
         </div>
       </div>
       <p class="note" style="margin-top:8px">店の買取価格は「美品（状態A）」のときの値段です。傷があると査定が下がります。このページでは、小傷（A-）なら買取価格の56%、傷あり（B）なら20%で買い取られると仮定して、「いくら以下で仕入れれば黒字か」を出しています。仮の比率なので、実際の査定とは違うことがあります。上限からは、ここで入れた費用を引いています。</p>
+    </details>
+  </main>
+
+  <main id="view-watch" class="list" hidden>
+    <p class="note">気になるカードを保存しておく場所です。「買取を調べる」でカードの「☆ ウォッチ」を押すと、ここに並びます。保存したときの買取価格と今の買取価格を比べられます。</p>
+    <div><label>並べ方</label><div class="chips" id="watch-sort" role="group" aria-label="並べ方"></div></div>
+    <p class="note" id="watch-info"></p>
+    <div class="list" id="watch-cards"></div>
+    <details class="panel">
+      <summary>書き出しと読み込み</summary>
+      <p class="note" style="margin:8px 0">ウォッチはこの端末のこのブラウザの中にだけ保存されます。別の端末で使うときや、閲覧データを消す前に、書き出しておくと読み込みで戻せます。</p>
+      <div class="grid2">
+        <button type="button" id="watch-export">ファイルに書き出す</button>
+        <button type="button" id="watch-import-btn">ファイルから読み込む</button>
+      </div>
+      <input type="file" id="watch-import" accept="application/json,.json" hidden>
+      <p class="note" id="watch-io" style="margin-top:6px"></p>
     </details>
   </main>
 
@@ -206,7 +231,13 @@ function signed(n){return '<b class="num '+(n>=0?"pos":"neg")+'">'+(n>=0?"+":"")
 function shopName(i){var s=DATA.shops[i];return SHOP_LABEL[s.id]||s.id;}
 
 var prices=load("checker.prices",{});
-var pins=load("checker.pins",[]);
+/* ウォッチ: {カードのキー: {name, number, label, added, buy0, memo, seen}}。buy0 は保存したときの買取価格 */
+var watch=load("checker.watch",null);
+var oldPins=watch?[]:load("checker.pins",[]);  // 以前の☆。データを読み込んだあとでウォッチに移す
+if(!watch)watch={};
+function today(){var d=new Date();return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2);}
+function saveWatch(){save("checker.watch",watch);var n=Object.keys(watch).length;$("watch-count").textContent=n?" "+n:"";}
+function watchAdd(g){watch[g.key]={name:g.name,number:g.number,label:g.label,added:today(),buy0:buyOf(g),memo:"",seen:""};saveWatch();}
 var RECENT_MAX=5;
 var recent=load("checker.recent",[]).slice(0,RECENT_MAX);
 function searchWord(g){return g.name+(g.number?" "+g.number:"");}
@@ -331,8 +362,17 @@ function detailHtml(g,idx){
       '<a class="js-link" href="'+L.yuyu+'" target="_blank" rel="noopener">遊々亭の買取表</a></div>'+
     '</div>';
 }
-function cardHtml(g,idx){
-  var o=outs(g),buy=buyOf(g),L=marketLinks(g),pinned=pins.indexOf(g.key)>=0;
+function watchStrip(g,idx){
+  var w=watch[g.key],buy=buyOf(g),diff=buy-w.buy0,pct=w.buy0?Math.round(diff/w.buy0*100):0;
+  return '<div class="watch-strip">'+
+    '<div class="since"><span>保存時（'+esc(w.added.slice(5).replace("-","/"))+'） <span class="num">'+yen(w.buy0)+'</span> → 今 <b class="num">'+yen(buy)+'</b></span>'+
+      '<span>'+(diff?signed(diff)+' <b class="num '+(diff>=0?"pos":"neg")+'">'+(diff>=0?"+":"")+pct+'%</b>':'<span class="note">変化なし</span>')+'</span></div>'+
+    '<div class="since"><span class="'+(w.seen===today()?"seen":"note")+'">'+(w.seen===today()?"✓ 今日は出品を確認済み":w.seen?"最後に出品を確認: "+esc(w.seen.slice(5).replace("-","/")):"まだ出品を確認していません")+'</span></div>'+
+    '<input type="text" class="js-memo" maxlength="60" placeholder="メモ（例：3万円以下なら買う）" value="'+esc(w.memo||"")+'" aria-label="メモ">'+
+    '</div>';
+}
+function cardHtml(g,idx,inWatch){
+  var o=outs(g),buy=buyOf(g),L=marketLinks(g),pinned=!!watch[g.key];
   var buying=g.entries.filter(function(e){return e[7];});
   var shops=buying.length>1?buying.length+"件の買取価格あり":shopName(buying[0][0])+"が買取";
   return '<article class="hit '+o.cls+'" data-i="'+idx+'">'+
@@ -347,11 +387,12 @@ function cardHtml(g,idx){
       '<a class="js-link" href="'+L.onSale+'" target="_blank" rel="noopener">メルカリ<br>新着</a>'+
       '<a class="js-link" href="'+L.yahooFlea+'" target="_blank" rel="noopener">Yahoo!<br>フリマ</a>'+
       '<a class="js-link" href="'+L.yahooOn+'" target="_blank" rel="noopener">ヤフオク<br>出品中</a>'+
-      '<button type="button" class="js-pin" aria-pressed="'+pinned+'" aria-label="'+(pinned?"ウォッチから外す":"ウォッチに入れる")+'">'+(pinned?"★":"☆")+'</button></div>'+
+      '<button type="button" class="js-pin" aria-pressed="'+pinned+'" aria-label="'+(pinned?"ウォッチから外す":"ウォッチに入れる")+'"><b>'+(pinned?"★":"☆")+'</b>'+(pinned?"ウォッチ中":"ウォッチ")+'</button></div>'+
     '<div class="quick-title">相場を見る（絞り込みなし）</div>'+
     '<div class="quick quick2">'+
       '<a class="js-link" href="'+L.sold+'" target="_blank" rel="noopener">メルカリ 売り切れ</a>'+
       '<a class="js-link" href="'+L.yahoo+'" target="_blank" rel="noopener">ヤフオク 落札相場</a></div>'+
+    (inWatch&&watch[g.key]?watchStrip(g,idx):'')+
     (g.open?detailHtml(g,idx):'')+
     '</article>';
 }
@@ -364,13 +405,12 @@ function renderCheck(){
     info=matched.length+"件。買取価格の高い順です。カードを押すと、店ごとの価格と利益の計算が開きます。";
     if(matched.length===1)matched[0].open=true;
   }else{
-    var pinned=GROUPS.filter(function(g){return pins.indexOf(g.key)>=0;});
-    matched=pinned.length?pinned:GROUPS;
-    info=pinned.length?"ウォッチ中の"+pinned.length+"種類です。☆を押すと出し入れできます。":"買取"+yen(DATA.min_buy)+"以上の"+GROUPS.length+"種類を、買取価格の高い順に表示しています。☆を押したカードは、次からここに並びます。";
+    matched=GROUPS;
+    info="買取"+yen(DATA.min_buy)+"以上の"+GROUPS.length+"種類を、買取価格の高い順に表示しています。「☆ ウォッチ」を押したカードは、ウォッチのタブに並びます。";
   }
   $("check-info").textContent=info;
   var slice=matched.slice(0,shown);
-  $("cards").innerHTML=slice.length?slice.map(cardHtml).join(""):'<p class="empty">見つかりませんでした。型番（例：042/090）だけで試してください。買取'+yen(DATA.min_buy)+'未満のカードは載っていません。</p>';
+  $("cards").innerHTML=slice.length?slice.map(function(g,i){return cardHtml(g,i,false);}).join(""):'<p class="empty">見つかりませんでした。型番（例：042/090）だけで試してください。買取'+yen(DATA.min_buy)+'未満のカードは載っていません。</p>';
   $("more").hidden=matched.length<=shown;
 }
 $("q").addEventListener("input",function(){shown=30;renderCheck();});
@@ -381,37 +421,100 @@ $("recent").addEventListener("click",function(e){
   var b=e.target.closest("button");if(!b)return;
   $("q").value=b.dataset.q;shown=30;renderCheck();
 });
-$("cards").addEventListener("click",function(e){
-  var art=e.target.closest("article");if(!art)return;
-  var i=Number(art.dataset.i),g=matched[i];
-  if(e.target.closest(".js-link")){remember(g);return;}
-  if(e.target.closest(".js-pin")){
-    var at=pins.indexOf(g.key);if(at>=0)pins.splice(at,1);else pins.push(g.key);
-    save("checker.pins",pins);
-    if($("q").value.trim())art.outerHTML=cardHtml(g,i);else renderCheck();
-    return;
-  }
-  if(e.target.closest(".js-toggle")){g.open=!g.open;if(g.open)remember(g);art.outerHTML=cardHtml(g,i);}
+/* カードの一覧（「買取を調べる」と「ウォッチ」）に共通の操作 */
+function bindCards(id,list,inWatch,rerender){
+  var box=$(id);
+  function redraw(art,g,i){art.outerHTML=cardHtml(g,i,inWatch);}
+  box.addEventListener("click",function(e){
+    var art=e.target.closest("article");if(!art)return;
+    if(e.target.closest(".js-drop")){delete watch[art.dataset.key];saveWatch();rerender();return;}
+    var i=Number(art.dataset.i),g=list()[i];if(!g)return;
+    if(e.target.closest(".js-link")){
+      remember(g);
+      // 出品を探すリンクを開いたら、今日確認した印を付ける
+      if(watch[g.key]&&e.target.closest(".quick:not(.quick2)")){watch[g.key].seen=today();saveWatch();if(inWatch)redraw(art,g,i);}
+      return;
+    }
+    if(e.target.closest(".js-pin")){
+      if(watch[g.key]){delete watch[g.key];saveWatch();}else watchAdd(g);
+      if(inWatch)rerender();else redraw(art,g,i);
+      return;
+    }
+    if(e.target.closest(".js-toggle")){g.open=!g.open;if(g.open)remember(g);redraw(art,g,i);}
+  });
+  box.addEventListener("change",function(e){
+    if(!e.target.classList.contains("js-sel"))return;
+    var art=e.target.closest("article"),i=Number(art.dataset.i),g=list()[i];
+    g.sel=Number(e.target.value);redraw(art,g,i);
+  });
+  box.addEventListener("input",function(e){
+    var art=e.target.closest("article");if(!art)return;
+    var g=list()[Number(art.dataset.i)];if(!g)return;
+    if(e.target.classList.contains("js-memo")){watch[g.key].memo=e.target.value;saveWatch();return;}
+    if(!e.target.classList.contains("js-price"))return;
+    if(e.target.value==="")delete prices[g.key];else prices[g.key]=e.target.value;
+    save("checker.prices",prices);
+    var o=outs(g);art.className="hit "+o.cls;art.querySelector(".js-outs").innerHTML=o.html;
+  });
+}
+bindCards("cards",function(){return matched;},false,function(){renderCheck();});
+
+/* ウォッチ */
+var WATCH_SORT={move:"値上がりが大きい順",added:"新しく入れた順"};
+var watchSort="move",watched=[];
+function renderWatch(){
+  chips("watch-sort",Object.keys(WATCH_SORT).map(function(k){return [k,WATCH_SORT[k]];}),watchSort);
+  var byKey={};GROUPS.forEach(function(g){byKey[g.key]=g;});
+  var keys=Object.keys(watch);
+  watched=keys.filter(function(k){return byKey[k];}).map(function(k){return byKey[k];});
+  var gone=keys.filter(function(k){return !byKey[k];});
+  watched.sort(function(a,b){
+    var wa=watch[a.key],wb=watch[b.key];
+    if(watchSort==="added")return wa.added<wb.added?1:wa.added>wb.added?-1:0;
+    var ra=wa.buy0?(buyOf(a)-wa.buy0)/wa.buy0:0,rb=wb.buy0?(buyOf(b)-wb.buy0)/wb.buy0:0;
+    return (rb-ra)||(buyOf(b)-buyOf(a));
+  });
+  var seen=watched.filter(function(g){return watch[g.key].seen===today();}).length;
+  $("watch-info").textContent=keys.length?keys.length+"枚を保存しています。今日、出品を確認したのは"+seen+"枚です（「出品を探す」のリンクを開くと確認済みになります）。":"";
+  var html=watched.map(function(g,i){return cardHtml(g,i,true);}).join("")+gone.map(function(k){
+    var w=watch[k];
+    return '<article class="hit" data-key="'+esc(k)+'"><div class="watch-strip" style="border-top:0"><div class="since"><span><b>'+esc(w.name)+'</b> <span class="note num">'+esc(w.number||"")+(w.label?" "+esc(w.label):"")+'</span></span></div>'+
+      '<span class="note">いまの買取表に見つかりません（保存時 '+yen(w.buy0)+'）。掲載が終わったか、買取が'+yen(DATA.min_buy)+'未満に下がった可能性があります。</span>'+
+      '<button type="button" class="js-drop">ウォッチから外す</button></div></article>';
+  }).join("");
+  $("watch-cards").innerHTML=html||'<p class="empty">まだ何も保存していません。「買取を調べる」でカードを探して、「☆ ウォッチ」を押してください。</p>';
+}
+bindCards("watch-cards",function(){return watched;},true,function(){renderWatch();});
+$("watch-sort").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;watchSort=b.dataset.k;renderWatch();});
+$("watch-export").addEventListener("click",function(){
+  var blob=new Blob([JSON.stringify({app:"tcg-buylist-watch",exported:new Date().toISOString(),watch:watch,prices:prices,settings:settings},null,1)],{type:"application/json"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="watch-"+today()+".json";document.body.appendChild(a);a.click();a.remove();
+  $("watch-io").textContent=Object.keys(watch).length+"枚を書き出しました。";
 });
-$("cards").addEventListener("change",function(e){
-  if(!e.target.classList.contains("js-sel"))return;
-  var art=e.target.closest("article"),i=Number(art.dataset.i),g=matched[i];
-  g.sel=Number(e.target.value);art.outerHTML=cardHtml(g,i);
+$("watch-import-btn").addEventListener("click",function(){$("watch-import").click();});
+$("watch-import").addEventListener("change",function(){
+  var f=this.files[0];if(!f)return;
+  var reader=new FileReader();
+  reader.onload=function(){
+    try{
+      var d=JSON.parse(reader.result),n=0;
+      if(!d||typeof d.watch!=="object"||!d.watch)throw new Error("format");
+      Object.keys(d.watch).forEach(function(k){var w=d.watch[k];if(!watch[k]&&w&&typeof w.name==="string"){watch[k]={name:w.name,number:String(w.number||""),label:String(w.label||""),added:String(w.added||today()),buy0:Number(w.buy0)||0,memo:String(w.memo||""),seen:String(w.seen||"")};n++;}});
+      if(d.prices&&typeof d.prices==="object")Object.keys(d.prices).forEach(function(k){if(prices[k]===undefined)prices[k]=String(d.prices[k]);});
+      save("checker.prices",prices);saveWatch();renderWatch();renderCheck();
+      $("watch-io").textContent=n+"枚を読み込みました（すでにあるカードはそのまま残しています）。";
+    }catch(e){$("watch-io").textContent="読み込めませんでした。このページで書き出したファイルを選んでください。";}
+  };
+  reader.readAsText(f);this.value="";
 });
-$("cards").addEventListener("input",function(e){
-  if(!e.target.classList.contains("js-price"))return;
-  var art=e.target.closest("article"),g=matched[Number(art.dataset.i)];
-  if(e.target.value==="")delete prices[g.key];else prices[g.key]=e.target.value;
-  save("checker.prices",prices);
-  var o=outs(g);art.className="hit "+o.cls;art.querySelector(".js-outs").innerHTML=o.html;
-});
-function onSettings(){settings.ship=Number($("s-ship").value)||0;settings.kantei=$("s-kantei").checked;settings.budget=Number($("s-budget").value)||0;save("checker.settings",settings);renderCheck();}
+
+function onSettings(){settings.ship=Number($("s-ship").value)||0;settings.kantei=$("s-kantei").checked;settings.budget=Number($("s-budget").value)||0;save("checker.settings",settings);renderCheck();renderWatch();}
 function renderCap(){
   var mode=settings.cap||"buy";
   $("cap-chips").innerHTML=CAP_MODES.map(function(m){return '<button type="button" class="chip" data-k="'+m[0]+'" aria-pressed="'+(mode===m[0])+'">'+m[1]+'</button>';}).join("");
   $("cap-note").textContent=CAP_NOTE[mode]+(Number(settings.budget)>0?" 予算（"+yen(Number(settings.budget))+"）を超える出品も外します。":"");
 }
-$("cap-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.cap=b.dataset.k;save("checker.settings",settings);renderCap();renderCheck();});
+$("cap-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;settings.cap=b.dataset.k;save("checker.settings",settings);renderCap();renderCheck();renderWatch();});
 $("s-budget").addEventListener("input",function(){onSettings();renderCap();});
 $("s-ship").addEventListener("input",onSettings);$("s-kantei").addEventListener("change",onSettings);
 
@@ -478,8 +581,9 @@ document.addEventListener("click",function(e){
 
 /* 表示の切り替え */
 function route(){
-  var v=(location.hash||"#check").slice(1);if(["check","movers","shops"].indexOf(v)<0)v="check";
-  ["check","movers","shops"].forEach(function(n){$("view-"+n).hidden=n!==v;});
+  var v=(location.hash||"#check").slice(1);if(["check","watch","movers","shops"].indexOf(v)<0)v="check";
+  ["check","watch","movers","shops"].forEach(function(n){$("view-"+n).hidden=n!==v;});
+  if(v==="watch"&&DATA)renderWatch();
   document.querySelectorAll("nav a").forEach(function(a){if(a.dataset.view===v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   window.scrollTo(0,0);
 }
@@ -490,6 +594,9 @@ route();
 if((location.hash||"#check")==="#check")$("q").focus();
 fetch("data.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();}).then(function(d){
   DATA=d;buildGroups();renderRecent();
+  // 以前の☆をウォッチに移す（1回だけ）
+  if(oldPins.length){var byKey={};GROUPS.forEach(function(g){byKey[g.key]=g;});oldPins.forEach(function(k){if(byKey[k]&&!watch[k])watchAdd(byKey[k]);});oldPins=[];}
+  saveWatch();
   var preset=new URLSearchParams(location.search).get("q");if(preset)$("q").value=preset;
   $("stamp").innerHTML='<div class="stamp-title">買取価格を取得した日時</div><div class="stamp-grid">'+d.shops.filter(function(s){return s.count;}).map(function(s){
     var t=new Date(s.fetched_at),h=(Date.now()-t.getTime())/3600000,ok=!isNaN(h);
@@ -500,7 +607,7 @@ fetch("data.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw new Error(
     return '<p class="note held">'+esc(SHOP_LABEL[s.id]||s.id)+'：'+esc(s.held.last.slice(5,16).replace("-","/").replace("T"," "))+' の取得は、件数が '+s.held.count.toLocaleString()+'件 に急に減っていたため保存していません（店が買取表を更新している途中のことがあります）。上の日時のデータを表示しています。</p>';
   }).join("");
   if(!d.movers.some(function(m){return m[2]==="up";}))moverKind="all";
-  renderCheck();renderMovers();renderCross();
+  renderCheck();renderWatch();renderMovers();renderCross();
 }).catch(function(){
   $("stamp").textContent="買取価格を読み込めませんでした。時間をおいて開き直してください。";
 });
