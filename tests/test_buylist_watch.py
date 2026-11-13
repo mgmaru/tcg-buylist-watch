@@ -197,6 +197,38 @@ class VariantTest(unittest.TestCase):
         self.assertEqual([(r["sell_variant"], r["gap"]) for r in rows], [("マスターボール柄/ミラー仕様", 25000)])
 
 
+class PackTest(unittest.TestCase):
+    def loaded(self, stray_pack):
+        # 2つの店が同じパック S1a の6枚を扱っている。店 b には、たまたま名前と型番が同じ別パックのカードが1枚ある
+        cards = [(f"カード{i}", f"{i:03d}/070") for i in range(1, 7)]
+        a = [price(f"a{i}", name=n, number=num, set_code="S1a") for i, (n, num) in enumerate(cards)]
+        b = [price(f"b{i}", name=n, number=num, set_code="S1a-M") for i, (n, num) in enumerate(cards)]
+        b.append(price("old", name="カード1", number="001/070", set_code=stray_pack))
+        return {"a": a, "b": b}
+
+    def test_same_name_and_number_in_another_pack_is_a_different_card(self):
+        g = compare.assign_groups(self.loaded("L1-I"))
+        self.assertEqual(g[("a", "a0")], g[("b", "b0")])       # S1a と S1a-M は同じパック（枝番は仕様）
+        self.assertNotEqual(g[("a", "a0")], g[("b", "old")])   # L1 のカードは別のカード
+        self.assertEqual(g[("a", "a1")], "カード2|002/070")     # 分かれないカードのキーは変わらない
+
+    def test_unknown_pack_is_not_split(self):
+        g = compare.assign_groups(self.loaded("その他"))
+        # パックが分からない行は、別のカードと言い切れないので分けない（同じ店に2行あるので、言葉で見分ける）
+        self.assertNotIn("|@", g[("b", "old")])
+
+    def test_pack_family(self):
+        self.assertEqual([compare.pack_family(x) for x in ["SV4a-M", "HS-K", "BW8紫", "その他", "XY/171-M", "DPt4-B"]],
+                         ["sv4a", "hs", "bw8", "", "xy/171", "dpt4"])
+
+    def test_cross_shop_ignores_another_pack(self):
+        loaded = self.loaded("L1-I")
+        loaded["a"][0] = price("a0", name="カード1", number="001/070", set_code="S1a", buy=0, sell=50)
+        loaded["b"][-1] = price("old", name="カード1", number="001/070", set_code="L1-I", buy=3000)
+        rows = compare.cross_shop(loaded, loaded)
+        self.assertEqual([r["buy_set"] for r in rows], ["S1a-M"])  # 同じパックどうしだけ。L1 の買取と S1a の販売は比べない
+
+
 class ParallelFetchTest(unittest.TestCase):
     def test_shops_are_fetched_at_the_same_time_and_one_failure_does_not_stop_the_others(self):
         import threading
