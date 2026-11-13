@@ -569,7 +569,7 @@ function cardHtml(g,idx,inWatch){
   var shops=buying.length>1?buying.length+"件の買取価格あり":shopName(buying[0][0])+"が買取";
   return '<article class="hit '+o.cls+'" data-i="'+idx+'">'+
     '<button type="button" class="hit-head js-toggle" aria-expanded="'+(g.open?"true":"false")+'">'+
-      '<span><span class="hit-name">'+esc(g.name)+'</span><br><span class="card-model num">'+esc(g.number||"型番なし")+(g.label?' <b class="variant">'+esc(g.label)+'</b>':'')+' ・ '+esc(shops)+'</span></span>'+
+      '<span><span class="hit-name">'+esc(g.name)+'</span><br><span class="card-model num">'+esc((g.entries[0][4]?g.entries[0][4]+" ":"")+(g.number||"型番なし"))+(g.label?' <b class="variant">'+esc(g.label)+'</b>':'')+' ・ '+esc(shops)+'</span></span>'+
       '<span class="hit-buy"><small>買取（状態A）</small>'+yen(buy)+'</span></button>'+
     '<div class="hit-limits"><div class="lim-title">フリマでいくら以下なら買ってよいか</div>'+
       '<div class="lim"><span>慎重に買うなら</span><b>'+limitText(buy,RATE.b)+'</b><span>店の査定が「傷あり（B）」でも黒字</span></div>'+
