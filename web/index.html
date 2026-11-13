@@ -200,6 +200,11 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
       <div class="chips" id="cond-chips" role="group" aria-label="フリマを開くときの状態の絞り込み"></div>
       <p class="note" id="cond-note"></p>
     </details>
+    <details class="capbox">
+      <summary>並べ方と価格帯：<b id="view-summary"></b></summary>
+      <label>並べ方</label><div class="chips" id="check-sort" role="group" aria-label="並べ方"></div>
+      <label>買取価格の範囲</label><div class="chips" id="check-band" role="group" aria-label="買取価格の範囲"></div>
+    </details>
     <p class="note" id="check-info"></p>
     <div class="list" id="cards"></div>
     <button type="button" id="more" hidden>さらに表示</button>
@@ -269,6 +274,10 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
       <label for="cq">カード名か型番で絞り込む</label>
       <input type="search" id="cq" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" placeholder="ゲンガー 042/090">
     </div>
+    <details class="capbox">
+      <summary>並べ方：<b id="cross-summary"></b></summary>
+      <div class="chips" id="cross-sort" role="group" aria-label="並べ方"></div>
+    </details>
     <p class="note" id="cross-info"></p>
     <div class="list" id="cross"></div>
     <button type="button" id="cross-more" hidden>さらに表示</button>
@@ -580,23 +589,38 @@ function cardHtml(g,idx,inWatch){
     '</article>';
 }
 
+/* 並べ方と価格帯。どのタブも、選んだ並べ方は覚えておく */
+var VIEW=UserStore.get("view",{});
+function setView(k,v){VIEW[k]=v;UserStore.set("view",VIEW);}
+var CHECK_SORT=[["desc","買取が高い順"],["asc","買取が低い順"]];
+var BANDS=[["all","すべて",0,Infinity],["b1","〜5,000円",0,5000],["b2","5,000〜2万円",5000,20000],["b3","2万〜10万円",20000,100000],["b4","10万円以上",100000,Infinity]];
+function labelOf(list,k){for(var i=0;i<list.length;i++){if(String(list[i][0])===String(k))return list[i][1];}return "";}
 var matched=[];
 function renderCheck(){
+  var cs=VIEW.checkSort||"desc",band=BANDS[0];BANDS.forEach(function(x){if(x[0]===(VIEW.band||"all"))band=x;});
+  chips("check-sort",CHECK_SORT,cs);chips("check-band",BANDS,band[0]);
+  $("view-summary").textContent=labelOf(CHECK_SORT,cs)+"・"+(band[0]==="all"?"価格帯は絞らない":band[1]);
   var tokens=$("q").value.trim().split(/\s+/).filter(Boolean).map(norm),info;
   if(tokens.length){
     matched=GROUPS.filter(function(g){return tokens.every(function(t){return g.hay.indexOf(t)>=0;});});
-    info=matched.length+"件。買取価格の高い順です。カードを押すと、店ごとの価格と利益の計算が開きます。";
-    if(matched.length===1)matched[0].open=true;
+    info="件。カードを押すと、店ごとの価格と利益の計算が開きます。";
   }else{
     matched=GROUPS;
-    info="買取"+yen(DATA.min_buy)+"以上の"+GROUPS.length+"種類を、買取価格の高い順に表示しています。「☆ ウォッチ」を押したカードは、ウォッチのタブに並びます。";
+    info="種類（買取"+yen(DATA.min_buy)+"以上のカード）。「☆ ウォッチ」を押したカードは、ウォッチのタブに並びます。";
   }
+  // GROUPS は買取の高い順。価格帯で絞り、低い順のときは逆にする
+  if(band[0]!=="all")matched=matched.filter(function(g){return g.best>=band[2]&&g.best<band[3];});
+  if(cs==="asc")matched=matched.slice().reverse();
+  if(tokens.length&&matched.length===1)matched[0].open=true;
+  info=matched.length+info;
   $("check-info").textContent=info;
   var slice=matched.slice(0,shown);
   $("cards").innerHTML=slice.length?slice.map(function(g,i){return cardHtml(g,i,false);}).join(""):'<p class="empty">見つかりませんでした。型番（例：042/090）だけで試してください。買取'+yen(DATA.min_buy)+'未満のカードは載っていません。</p>';
   $("more").hidden=matched.length<=shown;
 }
 $("q").addEventListener("input",function(){shown=30;renderCheck();});
+$("check-sort").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;setView("checkSort",b.dataset.k);shown=30;renderCheck();});
+$("check-band").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;setView("band",b.dataset.k);shown=30;renderCheck();});
 $("more").addEventListener("click",function(){shown+=30;renderCheck();});
 $("q").addEventListener("focus",function(){this.select();});
 $("recent-clear").addEventListener("click",function(){recent=[];UserStore.set("recent",recent);renderRecent();});
@@ -645,8 +669,8 @@ function bindCards(id,list,inWatch,rerender){
 bindCards("cards",function(){return matched;},false,function(){renderCheck();});
 
 /* ウォッチ */
-var WATCH_SORT={move:"値上がりが大きい順",added:"新しく入れた順"};
-var watchSort="move",watched=[];
+var WATCH_SORT={move:"値上がりが大きい順",added:"新しく入れた順",buyDesc:"買取が高い順",buyAsc:"買取が低い順"};
+var watchSort=WATCH_SORT[VIEW.watchSort]?VIEW.watchSort:"move",watched=[];
 function renderWatch(){
   chips("watch-sort",Object.keys(WATCH_SORT).map(function(k){return [k,WATCH_SORT[k]];}),watchSort);
   var byKey={};GROUPS.forEach(function(g){byKey[g.key]=g;});
@@ -656,6 +680,8 @@ function renderWatch(){
   watched.sort(function(a,b){
     var wa=watch[a.key],wb=watch[b.key];
     if(watchSort==="added")return wa.added<wb.added?1:wa.added>wb.added?-1:0;
+    if(watchSort==="buyDesc")return buyOf(b)-buyOf(a);
+    if(watchSort==="buyAsc")return buyOf(a)-buyOf(b);
     var ra=wa.buy0?(buyOf(a)-wa.buy0)/wa.buy0:0,rb=wb.buy0?(buyOf(b)-wb.buy0)/wb.buy0:0;
     return (rb-ra)||(buyOf(b)-buyOf(a));
   });
@@ -670,7 +696,7 @@ function renderWatch(){
   $("watch-cards").innerHTML=html||'<p class="empty">まだ何も保存していません。「買取を調べる」でカードを探して、「☆ ウォッチ」を押してください。</p>';
 }
 bindCards("watch-cards",function(){return watched;},true,function(){renderWatch();});
-$("watch-sort").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;watchSort=b.dataset.k;renderWatch();});
+$("watch-sort").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;watchSort=b.dataset.k;setView("watchSort",watchSort);renderWatch();});
 $("watch-export").addEventListener("click",function(){
   var blob=new Blob([JSON.stringify({app:"tcg-buylist-watch",exported:new Date().toISOString(),watch:watch,prices:prices,settings:settings,sellers:sellers},null,1)],{type:"application/json"});
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="watch-"+today()+".json";document.body.appendChild(a);a.click();a.remove();
@@ -763,8 +789,8 @@ $("seller-list").addEventListener("input",function(e){
 
 /* 値動き */
 var PRICE_STEPS=[[0,"すべて"],[500,"500円以上"],[1000,"1,000円以上"],[3000,"3,000円以上"],[10000,"1万円以上"]];
-var SORT_LABEL={rate:"変化の割合が大きい順",amount:"変化の金額が大きい順"};
-var moverMin=500,moverSort="rate",moverShown=50;  // 数円のカードの動きは割合だけ大きく出るので、最初は500円以上にしておく
+var SORT_LABEL={rate:"変化の割合が大きい順",amount:"変化の金額が大きい順",buyDesc:"買取が高い順",buyAsc:"買取が低い順"};
+var moverMin=VIEW.moverMin===undefined?500:VIEW.moverMin,moverSort=SORT_LABEL[VIEW.moverSort]?VIEW.moverSort:"rate",moverShown=50;  // 数円のカードの動きは割合だけ大きく出るので、最初は500円以上にしておく
 function chips(id,list,current){
   $(id).innerHTML=list.map(function(x){return '<button type="button" class="chip" data-k="'+x[0]+'" aria-pressed="'+(String(current)===String(x[0]))+'">'+x[1]+'</button>';}).join("");
 }
@@ -817,7 +843,11 @@ function renderMovers(){
   if(!HISTORY){$("mover-info").textContent="";$("mover-more").hidden=true;$("movers").innerHTML='<p class="empty">履歴を読み込んでいます…</p>';return;}
   var days=Number(moverPeriod);
   var all=periodRows(days).filter(function(r){return (moverKind==="all"||(moverKind==="up")===(r.diff>0))&&Math.max(r.base,r.now)>=moverMin;});
-  all.sort(function(a,b){return moverSort==="rate"?(b.rate-a.rate)||(Math.abs(b.diff)-Math.abs(a.diff)):Math.abs(b.diff)-Math.abs(a.diff);});
+  all.sort(function(a,b){
+    if(moverSort==="buyDesc")return b.now-a.now;
+    if(moverSort==="buyAsc")return a.now-b.now;
+    return moverSort==="rate"?(b.rate-a.rate)||(Math.abs(b.diff)-Math.abs(a.diff)):Math.abs(b.diff)-Math.abs(a.diff);
+  });
   var first=Math.min.apply(null,DATA.shops.filter(function(x){return x.count;}).map(function(x){return dayNum(x.since||x.fetched_at);}));
   var latest=Math.max.apply(null,DATA.shops.filter(function(x){return x.count;}).map(function(x){return dayNum(x.fetched_at);}));
   var short=latest-first<days;
@@ -839,6 +869,8 @@ function renderLastMovers(){
   // 新しい日を先に。同じ日の中は選んだ並べ方で
   all.sort(function(a,b){
     if(a[0]!==b[0])return a[0]<b[0]?1:-1;
+    if(moverSort==="buyDesc")return Math.max(b[7],b[8])-Math.max(a[7],a[8]);
+    if(moverSort==="buyAsc")return Math.max(a[7],a[8])-Math.max(b[7],b[8]);
     return moverSort==="rate"?(moveRate(b)-moveRate(a))||(Math.abs(b[8]-b[7])-Math.abs(a[8]-a[7])):Math.abs(b[8]-b[7])-Math.abs(a[8]-a[7]);
   });
   var rows=all.slice(0,moverShown);
@@ -856,17 +888,22 @@ function renderLastMovers(){
 }
 $("mover-period").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverPeriod=b.dataset.k==="last"?"last":Number(b.dataset.k);UserStore.set("period",moverPeriod);moverShown=50;renderMovers();});
 $("mover-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverKind=b.dataset.k;moverShown=50;renderMovers();});
-$("mover-price").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverMin=Number(b.dataset.k);moverShown=50;renderMovers();});
-$("mover-sort").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverSort=b.dataset.k;moverShown=50;renderMovers();});
+$("mover-price").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverMin=Number(b.dataset.k);setView("moverMin",moverMin);moverShown=50;renderMovers();});
+$("mover-sort").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverSort=b.dataset.k;setView("moverSort",moverSort);moverShown=50;renderMovers();});
 $("mover-more").addEventListener("click",function(){moverShown+=50;renderMovers();});
 
 /* 店の差 */
+var CROSS_SORT=[["gap","差額が大きい順"],["buyDesc","買取が高い順"],["buyAsc","買取が低い順"]];
+var crossSort=labelOf(CROSS_SORT,VIEW.crossSort)?VIEW.crossSort:"gap";
 var crossShown=50;
 function renderCross(){
   if(!DATA.cross.length){$("cross").innerHTML='<p class="empty">比べられる店のデータがまだありません。</p>';$("cross-info").textContent="";$("cross-more").hidden=true;return;}
   var tokens=$("cq").value.trim().split(/\s+/).filter(Boolean).map(norm);
   var rows=DATA.cross.filter(function(r){var t=norm(r[0]+" "+r[1]+" "+r[3]+" "+r[4]+" "+r[7]+" "+r[8]);return tokens.every(function(k){return t.indexOf(k)>=0;});});
-  $("cross-info").textContent=(tokens.length?rows.length+"件が当てはまります。":"全"+rows.length+"件。")+"差額の大きい順です。";
+  chips("cross-sort",CROSS_SORT,crossSort);$("cross-summary").textContent=labelOf(CROSS_SORT,crossSort);
+  // データは差額の大きい順。[5]=買取 [9]=販売 [10]=差額
+  if(crossSort!=="gap")rows=rows.slice().sort(function(a,b){return crossSort==="buyDesc"?b[5]-a[5]:a[5]-b[5];});
+  $("cross-info").textContent=tokens.length?rows.length+"件が当てはまります。":"全"+rows.length+"件。";
   $("cross-more").hidden=rows.length<=crossShown;
   if(!rows.length){$("cross").innerHTML='<p class="empty">当てはまる組み合わせがありません。「買取を調べる」で探すと、店ごとの買取と販売の価格を見られます。</p>';return;}
   $("cross").innerHTML=rows.slice(0,crossShown).map(function(r){
@@ -878,6 +915,7 @@ function renderCross(){
   }).join("");
 }
 $("cq").addEventListener("input",function(){crossShown=50;renderCross();});
+$("cross-sort").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;crossSort=b.dataset.k;setView("crossSort",crossSort);crossShown=50;renderCross();});
 $("cq").addEventListener("focus",function(){this.select();});
 $("cross-more").addEventListener("click",function(){crossShown+=50;renderCross();});
 document.addEventListener("click",function(e){
