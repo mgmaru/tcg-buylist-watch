@@ -148,6 +148,12 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
 .cap-budget label{flex:none;margin:0}
 .cap-budget input{min-height:36px;padding:5px 8px;font-size:15px}
 .quick small{display:block;font-size:10px;font-weight:500;color:var(--muted)}
+.spark{width:84px;height:26px;flex:none}
+.spark path{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-linejoin:round}
+.spark.up path{stroke:var(--good)} .spark.down path{stroke:var(--bad)}
+.row-move{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.mom{display:inline-block;border-radius:4px;padding:0 5px;font-size:11px;font-weight:700;background:var(--bg);color:var(--muted)}
+.mom.up{background:var(--good-bg);color:var(--good)} .mom.down{background:var(--bad-bg);color:var(--bad)} .mom.flat{background:var(--warn-bg);color:var(--warn)}
 .variant{display:inline-block;background:var(--warn-bg);color:var(--warn);border-radius:4px;padding:0 5px;font-size:12px;font-weight:700}
 .stamp{margin-top:8px;font-size:13px;color:var(--muted)}
 .stamp-title{font-size:12px;margin-bottom:4px}
@@ -244,9 +250,14 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
   </main>
 
   <main id="view-movers" class="list" hidden>
-    <div class="chips" id="mover-chips" role="group" aria-label="値動きの種類"></div>
-    <div><label>買取価格で絞る</label><div class="chips" id="mover-price" role="group" aria-label="買取価格で絞る"></div></div>
-    <div><label>並べ方</label><div class="chips" id="mover-sort" role="group" aria-label="並べ方"></div></div>
+    <p class="note">選んだ期間の最初と今の買取価格を比べて、上がっているカード・下がっているカードを探します。</p>
+    <div><label>期間</label><div class="chips" id="mover-period" role="group" aria-label="比べる期間"></div></div>
+    <div><label>向き</label><div class="chips" id="mover-chips" role="group" aria-label="値動きの種類"></div></div>
+    <details class="capbox">
+      <summary>絞り込みと並べ方：<b id="mover-summary"></b></summary>
+      <label>買取価格で絞る</label><div class="chips" id="mover-price" role="group" aria-label="買取価格で絞る"></div>
+      <label>並べ方</label><div class="chips" id="mover-sort" role="group" aria-label="並べ方"></div>
+    </details>
     <p class="note" id="mover-info"></p>
     <div class="list" id="movers"></div>
     <button type="button" id="mover-more" hidden>さらに表示</button>
@@ -323,9 +334,11 @@ var settings=UserStore.get("settings",{ship:0,kantei:false});
 function extra(){return (Number(settings.ship)||0)+(settings.kantei?1700:0);}
 
 /* 同じ名前と型番のカードを、店をまたいで1つにまとめる */
+var ITEM_BY_ID={};  // "店の番号:商品の識別子" -> 買取表の1行
 function buildGroups(){
   var map=new Map();
   DATA.items.forEach(function(it){
+    ITEM_BY_ID[it[0]+":"+it[1]]=it;
     // it[9] は「仕様までそろった同じカード」のキー。型番のない商品は店ごとに別々に扱う
     var key=it[9]||"s"+it[0]+":"+it[1];
     var g=map.get(key);
@@ -756,10 +769,72 @@ function chips(id,list,current){
   $(id).innerHTML=list.map(function(x){return '<button type="button" class="chip" data-k="'+x[0]+'" aria-pressed="'+(String(current)===String(x[0]))+'">'+x[1]+'</button>';}).join("");
 }
 function moveRate(m){return m[7]&&m[8]?Math.abs(m[8]-m[7])/m[7]:0;}
+/* 期間で比べる：その期間の最初と今の買取価格を比べる。"last" は前回の更新からの変化（これまでの一覧） */
+var PERIODS=[[3,"3日（短期）"],[7,"7日"],[30,"30日（中期）"],[90,"90日（長期）"],["last","前回の更新から"]];
+var moverPeriod=UserStore.get("period",7);
+var PERIOD_KINDS=[["up","上がった"],["down","下がった"],["all","すべて"]];
+function sparkline(sr,from,end,dir){
+  var W=84,H=26,p=3,lo=Infinity,hi=-Infinity,v0=valueAt(sr,from);
+  var pts=[[from,v0]];sr.pts.forEach(function(q){if(q[0]>from)pts.push(q);});
+  pts.forEach(function(q){lo=Math.min(lo,q[1]);hi=Math.max(hi,q[1]);});
+  if(hi===lo)hi=lo+1;
+  function x(d){return p+(W-p*2)*(d-from)/Math.max(1,end-from);}
+  function y(v){return H-p-(H-p*2)*(v-lo)/(hi-lo);}
+  var d="M"+x(pts[0][0])+" "+y(pts[0][1]);
+  for(var i=1;i<pts.length;i++)d+=" H"+x(pts[i][0])+" V"+y(pts[i][1]);
+  d+=" H"+x(end);
+  return '<svg class="spark '+(dir>0?"up":dir<0?"down":"")+'" viewBox="0 0 '+W+' '+H+'" aria-hidden="true"><path d="'+d+'"/></svg>';
+}
+/* 勢いの印。期間の中で、最後の動きの向きと、それから何日たったかで決める */
+function momentum(st,diff,end){
+  if(!st.dir||st.last===null)return "";
+  var quiet=end-st.last;
+  if(st.dir>0&&quiet<=2)return '<span class="mom up">上昇中'+(st.run>1?"（"+st.run+"回連続）":"")+'</span>';
+  if(st.dir>0)return '<span class="mom flat">上げ止まり（'+quiet+'日動きなし）</span>';
+  if(diff>0)return '<span class="mom flat">下げに転じた</span>';
+  if(quiet<=2)return '<span class="mom down">下落中'+(st.run>1?"（"+st.run+"回連続）":"")+'</span>';
+  return '<span class="mom">下げ止まり（'+quiet+'日動きなし）</span>';
+}
+function periodRows(days){
+  var rows=[];
+  Object.keys(HISTORY).forEach(function(key){
+    var it=ITEM_BY_ID[key];if(!it)return;
+    var sr=seriesOf(it),from=Math.max(sr.start,sr.end-days),base=valueAt(sr,from),now=sr.pts[sr.pts.length-1][1];
+    if(base===null||base===now)return;
+    rows.push({it:it,sr:sr,from:from,base:base,now:now,diff:now-base,rate:base?Math.abs(now-base)/base:0,full:sr.end-sr.start>=days});
+  });
+  return rows;
+}
 function renderMovers(){
-  chips("mover-chips",Object.keys(KIND_LABEL).map(function(k){return [k,KIND_LABEL[k]];}),moverKind);
+  chips("mover-period",PERIODS,moverPeriod);
   chips("mover-price",PRICE_STEPS,moverMin);
   chips("mover-sort",Object.keys(SORT_LABEL).map(function(k){return [k,SORT_LABEL[k]];}),moverSort);
+  var stepName="";PRICE_STEPS.forEach(function(x){if(x[0]===moverMin)stepName=x[1];});
+  $("mover-summary").textContent=(moverMin?"買取"+stepName:"買取価格は絞らない")+"・"+SORT_LABEL[moverSort];
+  if(moverPeriod==="last"){renderLastMovers();return;}
+  if(["up","down","all"].indexOf(moverKind)<0)moverKind="up";
+  chips("mover-chips",PERIOD_KINDS,moverKind);
+  if(!HISTORY){$("mover-info").textContent="";$("mover-more").hidden=true;$("movers").innerHTML='<p class="empty">履歴を読み込んでいます…</p>';return;}
+  var days=Number(moverPeriod);
+  var all=periodRows(days).filter(function(r){return (moverKind==="all"||(moverKind==="up")===(r.diff>0))&&Math.max(r.base,r.now)>=moverMin;});
+  all.sort(function(a,b){return moverSort==="rate"?(b.rate-a.rate)||(Math.abs(b.diff)-Math.abs(a.diff)):Math.abs(b.diff)-Math.abs(a.diff);});
+  var first=Math.min.apply(null,DATA.shops.filter(function(x){return x.count;}).map(function(x){return dayNum(x.since||x.fetched_at);}));
+  var latest=Math.max.apply(null,DATA.shops.filter(function(x){return x.count;}).map(function(x){return dayNum(x.fetched_at);}));
+  var short=latest-first<days;
+  $("mover-info").textContent=all.length+"件。"+(short?"記録は"+dayLabel(first)+"から"+dayLabel(latest)+"までしかないので、いまは「記録開始から今まで」の比較です。"+days+"日分が貯まると、期間どおりの比較になります。":days+"日前と今を比べています。");
+  $("mover-more").hidden=all.length<=moverShown;
+  if(!all.length){$("movers").innerHTML='<p class="empty">この条件に当てはまるカードはありません。</p>';return;}
+  $("movers").innerHTML=all.slice(0,moverShown).map(function(r){
+    var it=r.it,pct=r.base?Math.round(r.diff/r.base*100):null,st=trendStats(r.sr,r.from);
+    return '<div class="row"><div class="row-top"><b>'+esc(it[2])+(it[10]?' <span class="variant">'+esc(it[10])+'</span>':'')+'</b>'+momentum(st,r.diff,r.sr.end)+'</div>'+
+      '<span class="note num">'+esc([it[4],it[5],it[3]].filter(Boolean).join(" ・ "))+' ／ '+esc(shopName(it[0]))+'</span>'+
+      '<div class="row-move"><span><span class="note">'+(r.full?days+"日前":dayLabel(r.from))+'</span> <span class="num">'+yen(r.base)+' → '+yen(r.now)+'</span><br>'+signed(r.diff)+(pct!==null?' <b class="num '+(pct>=0?"pos":"neg")+'">'+(pct>=0?"+":"")+pct+'%</b>':'')+'</span>'+
+      sparkline(r.sr,r.from,r.sr.end,Math.sign(r.diff))+'</div>'+
+      '<a href="#check" class="js-open" data-q="'+esc(it[2]+(it[5]?" "+it[5]:""))+'" style="font-size:13px">このカードの買取を調べる</a></div>';
+  }).join("");
+}
+function renderLastMovers(){
+  chips("mover-chips",Object.keys(KIND_LABEL).map(function(k){return [k,KIND_LABEL[k]];}),moverKind);
   var all=DATA.movers.filter(function(m){return (moverKind==="all"||m[2]===moverKind)&&Math.max(m[7],m[8])>=moverMin;});
   // 新しい日を先に。同じ日の中は選んだ並べ方で
   all.sort(function(a,b){
@@ -768,7 +843,7 @@ function renderMovers(){
   });
   var rows=all.slice(0,moverShown);
   $("mover-more").hidden=all.length<=moverShown;
-  $("mover-info").textContent=DATA.movers.length?"直近7日ぶんの変化のうち、この条件に当てはまるのは"+all.length+"件です。もっと安いカードの動きも見るときは「すべて」を選んでください。":"";
+  $("mover-info").textContent=DATA.movers.length?"更新のたびに記録した変化を、新しい日から並べています（直近7日ぶん、"+all.length+"件）。掲載の開始と終了もここで見られます。":"";
   if(!rows.length){$("movers").innerHTML='<p class="empty">'+(DATA.movers.length?"この条件の値動きはありません。":"まだ値動きの記録がありません。取得を2日以上続けると、ここに変化が出ます。")+'</p>';return;}
   $("movers").innerHTML=rows.map(function(m){
     var diff=m[8]-m[7],pct=m[7]?Math.round(diff/m[7]*100):null;
@@ -779,6 +854,7 @@ function renderMovers(){
       '<a href="#check" class="js-open" data-q="'+esc(m[3]+(m[6]?" "+m[6]:""))+'" style="font-size:13px">このカードの買取を調べる</a></div>';
   }).join("");
 }
+$("mover-period").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverPeriod=b.dataset.k==="last"?"last":Number(b.dataset.k);UserStore.set("period",moverPeriod);moverShown=50;renderMovers();});
 $("mover-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverKind=b.dataset.k;moverShown=50;renderMovers();});
 $("mover-price").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverMin=Number(b.dataset.k);moverShown=50;renderMovers();});
 $("mover-sort").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverSort=b.dataset.k;moverShown=50;renderMovers();});
@@ -840,7 +916,7 @@ Source.catalog().then(function(d){
   if(!d.movers.some(function(m){return m[2]==="up";}))moverKind="all";
   renderCheck();renderWatch();renderMovers();renderCross();
   // 履歴はあとから読む。届いたら、開いているカードにグラフを出す
-  Source.history().then(function(h){HISTORY=h;},function(){HISTORY={};}).then(function(){renderCheck();renderWatch();});
+  Source.history().then(function(h){HISTORY=h;},function(){HISTORY={};}).then(function(){renderCheck();renderWatch();renderMovers();});
 }).catch(function(){
   $("stamp").textContent="買取価格を読み込めませんでした。時間をおいて開き直してください。";
 });
