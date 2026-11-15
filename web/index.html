@@ -265,6 +265,7 @@ details.panel summary{cursor:pointer;font-weight:700;font-size:14px}
     <div><label>向き</label><div class="chips" id="mover-chips" role="group" aria-label="値動きの種類"></div></div>
     <details class="capbox">
       <summary>絞り込みと並べ方：<b id="mover-summary"></b></summary>
+      <label>店で絞る</label><div class="chips" id="mover-shop" role="group" aria-label="店で絞る"></div>
       <label>買取価格で絞る</label><div class="chips" id="mover-price" role="group" aria-label="買取価格で絞る"></div>
       <label>並べ方</label><div class="chips" id="mover-sort" role="group" aria-label="並べ方"></div>
     </details>
@@ -816,6 +817,9 @@ $("seller-list").addEventListener("input",function(e){
 var PRICE_STEPS=[[0,"すべて"],[500,"500円以上"],[1000,"1,000円以上"],[3000,"3,000円以上"],[10000,"1万円以上"]];
 var SORT_LABEL={rate:"変化の割合が大きい順",amount:"変化の金額が大きい順",buyDesc:"買取が高い順",buyAsc:"買取が低い順"};
 var moverMin=VIEW.moverMin===undefined?500:VIEW.moverMin,moverSort=SORT_LABEL[VIEW.moverSort]?VIEW.moverSort:"rate",moverShown=50;  // 数円のカードの動きは割合だけ大きく出るので、最初は500円以上にしておく
+var moverShop=typeof VIEW.moverShop==="string"?VIEW.moverShop:"all";  // 店のID（"hareruya2" など）か "all"。並び順が変わっても同じ店を指すよう、番号ではなくIDで覚える
+function moverShops(){return DATA.shops.filter(function(x){return x.count;}).map(function(x){return [x.id,SHOP_LABEL[x.id]||x.id];});}
+function inMoverShop(shopIndex){return moverShop==="all"||DATA.shops[shopIndex].id===moverShop;}
 function chips(id,list,current){
   $(id).innerHTML=list.map(function(x){return '<button type="button" class="chip" data-k="'+x[0]+'" aria-pressed="'+(String(current)===String(x[0]))+'">'+x[1]+'</button>';}).join("");
 }
@@ -858,16 +862,19 @@ function periodRows(days){
 }
 function renderMovers(){
   chips("mover-period",PERIODS,moverPeriod);
+  var shops=moverShops();
+  if(!shops.some(function(x){return x[0]===moverShop;}))moverShop="all";   // 覚えていた店が、いまのデータに無いとき
+  chips("mover-shop",[["all","すべての店"]].concat(shops),moverShop);
   chips("mover-price",PRICE_STEPS,moverMin);
   chips("mover-sort",Object.keys(SORT_LABEL).map(function(k){return [k,SORT_LABEL[k]];}),moverSort);
   var stepName="";PRICE_STEPS.forEach(function(x){if(x[0]===moverMin)stepName=x[1];});
-  $("mover-summary").textContent=(moverMin?"買取"+stepName:"買取価格は絞らない")+"・"+SORT_LABEL[moverSort];
+  $("mover-summary").textContent=(moverShop==="all"?"":(SHOP_LABEL[moverShop]||moverShop)+"だけ・")+(moverMin?"買取"+stepName:"買取価格は絞らない")+"・"+SORT_LABEL[moverSort];
   if(moverPeriod==="last"){renderLastMovers();return;}
   if(["up","down","all"].indexOf(moverKind)<0)moverKind="up";
   chips("mover-chips",PERIOD_KINDS,moverKind);
   if(!HISTORY){$("mover-info").textContent="";$("mover-more").hidden=true;$("movers").innerHTML='<p class="empty">履歴を読み込んでいます…</p>';return;}
   var days=Number(moverPeriod);
-  var all=periodRows(days).filter(function(r){return (moverKind==="all"||(moverKind==="up")===(r.diff>0))&&Math.max(r.base,r.now)>=moverMin;});
+  var all=periodRows(days).filter(function(r){return inMoverShop(r.it[0])&&(moverKind==="all"||(moverKind==="up")===(r.diff>0))&&Math.max(r.base,r.now)>=moverMin;});
   all.sort(function(a,b){
     if(moverSort==="buyDesc")return b.now-a.now;
     if(moverSort==="buyAsc")return a.now-b.now;
@@ -890,7 +897,7 @@ function renderMovers(){
 }
 function renderLastMovers(){
   chips("mover-chips",Object.keys(KIND_LABEL).map(function(k){return [k,KIND_LABEL[k]];}),moverKind);
-  var all=DATA.movers.filter(function(m){return (moverKind==="all"||m[2]===moverKind)&&Math.max(m[7],m[8])>=moverMin;});
+  var all=DATA.movers.filter(function(m){return inMoverShop(m[1])&&(moverKind==="all"||m[2]===moverKind)&&Math.max(m[7],m[8])>=moverMin;});
   // 新しい日を先に。同じ日の中は選んだ並べ方で
   all.sort(function(a,b){
     if(a[0]!==b[0])return a[0]<b[0]?1:-1;
@@ -913,6 +920,7 @@ function renderLastMovers(){
 }
 $("mover-period").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverPeriod=b.dataset.k==="last"?"last":Number(b.dataset.k);UserStore.set("period",moverPeriod);moverShown=50;renderMovers();});
 $("mover-chips").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverKind=b.dataset.k;moverShown=50;renderMovers();});
+$("mover-shop").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverShop=b.dataset.k;setView("moverShop",moverShop);moverShown=50;renderMovers();});
 $("mover-price").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverMin=Number(b.dataset.k);setView("moverMin",moverMin);moverShown=50;renderMovers();});
 $("mover-sort").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;moverSort=b.dataset.k;setView("moverSort",moverSort);moverShown=50;renderMovers();});
 $("mover-more").addEventListener("click",function(){moverShown+=50;renderMovers();});
