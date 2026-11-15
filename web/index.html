@@ -127,7 +127,12 @@ a{color:var(--accent)}
 #watch-count,#seller-count{font-weight:500;font-size:12px}
 .seller{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
 .seller-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-.seller-top b{font-size:15px}
+.seller-top b{font-size:15px;overflow-wrap:anywhere}
+.seller-name{display:flex;align-items:baseline;gap:8px;min-width:0}
+.seller-top>.note{white-space:nowrap}
+.seller-name button{font-size:12px;font-weight:500;min-height:30px;padding:3px 10px;white-space:nowrap}
+.seller-rename{display:grid;grid-template-columns:1fr auto auto;gap:6px}
+.seller-rename button{min-height:36px;padding:5px 10px;font-size:13px}
 .seller-actions{display:grid;grid-template-columns:1fr auto;gap:8px}
 .seller-actions a{display:flex;align-items:center;justify-content:center;min-height:40px;border-radius:7px;background:var(--accent);color:var(--accent-ink);font-weight:700;text-decoration:none;font-size:14px}
 .seller input{min-height:36px;padding:5px 8px;font-size:14px}
@@ -759,15 +764,26 @@ function sellerSite(raw){
   for(var i=0;i<SELLER_SITES.length;i++){var h=SELLER_SITES[i][0];if(u.hostname===h||u.hostname.slice(-h.length-1)==="."+h)return {url:u.href,market:SELLER_SITES[i][1]};}
   return null;
 }
+var renaming=null;  // 呼び名を書き換えている出品者のID
 function renderSellers(){
   var list=sellers.slice().sort(function(a,b){return (a.seen||"")<(b.seen||"")?-1:(a.seen||"")>(b.seen||"")?1:0;});  // 長く見ていない人を上に
   $("sl-info").textContent=sellers.length?sellers.length+"人を登録しています。長く見ていない順に並べています。":"";
   $("seller-list").innerHTML=list.length?list.map(function(x){
-    return '<div class="seller" data-id="'+esc(x.id)+'"><div class="seller-top"><b>'+esc(x.name)+'</b><span class="note">'+esc(x.market)+'</span></div>'+
+    var top=renaming===x.id
+      ?'<div class="seller-rename"><input type="text" class="js-sname" maxlength="30" aria-label="呼び名" value="'+esc(x.name)+'"><button type="button" class="js-ssave">保存</button><button type="button" class="js-scancel">やめる</button></div>'
+      :'<div class="seller-top"><span class="seller-name"><b>'+esc(x.name)+'</b><button type="button" class="js-srename">名前を変える</button></span><span class="note">'+esc(x.market)+'</span></div>';
+    return '<div class="seller" data-id="'+esc(x.id)+'">'+top+
       '<span class="'+(x.seen===today()?"seen":"note")+'">'+(x.seen===today()?"✓ 今日は見ました":x.seen?"最後に見た日: "+esc(x.seen.slice(5).replace("-","/")):"まだ見ていません")+'</span>'+
       '<input type="text" class="js-smemo" maxlength="80" placeholder="メモ" aria-label="メモ" value="'+esc(x.memo||"")+'">'+
       '<div class="seller-actions"><a class="js-sopen" href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">出品を見る</a><button type="button" class="js-sdel">外す</button></div></div>';
   }).join(""):'<p class="empty">まだ登録していません。フリマで出品者のページを開いて、URLを上の欄に貼ってください。</p>';
+  var box=$("seller-list").querySelector(".js-sname");
+  if(box){box.focus();box.select();}
+}
+/* 呼び名を保存する。空のままなら、登録のときと同じ「○○の出品者」にする */
+function renameSeller(x,value){
+  x.name=value.trim()||x.market+"の出品者";
+  renaming=null;saveSellers();renderSellers();
 }
 function sellerById(el){var box=el.closest(".seller");if(!box)return null;for(var i=0;i<sellers.length;i++){if(sellers[i].id===box.dataset.id)return sellers[i];}return null;}
 $("sl-add").addEventListener("click",function(){
@@ -780,7 +796,16 @@ $("sl-add").addEventListener("click",function(){
 $("seller-list").addEventListener("click",function(e){
   var x=sellerById(e.target);if(!x)return;
   if(e.target.closest(".js-sopen")){x.seen=today();saveSellers();setTimeout(renderSellers,0);return;}
-  if(e.target.closest(".js-sdel")){sellers=sellers.filter(function(y){return y!==x;});saveSellers();renderSellers();}
+  if(e.target.closest(".js-sdel")){sellers=sellers.filter(function(y){return y!==x;});saveSellers();renderSellers();return;}
+  if(e.target.closest(".js-srename")){renaming=x.id;renderSellers();return;}
+  if(e.target.closest(".js-scancel")){renaming=null;renderSellers();return;}
+  if(e.target.closest(".js-ssave")){renameSeller(x,e.target.closest(".seller").querySelector(".js-sname").value);}
+});
+$("seller-list").addEventListener("keydown",function(e){
+  if(!e.target.classList.contains("js-sname"))return;
+  var x=sellerById(e.target);if(!x)return;
+  if(e.key==="Enter"&&!e.isComposing){e.preventDefault();renameSeller(x,e.target.value);}   // 変換の確定の Enter では保存しない
+  else if(e.key==="Escape"){renaming=null;renderSellers();}
 });
 $("seller-list").addEventListener("input",function(e){
   if(!e.target.classList.contains("js-smemo"))return;
