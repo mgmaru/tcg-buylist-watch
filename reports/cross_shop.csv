@@ -9,11 +9,9 @@ name,number,buy_shop,buy_set,buy_variant,buy_price,sell_shop,sell_set,sell_varia
 ミュウツー,009/016,cardrush,乱,乱戦！ポケモンスクランブル,800000,hareruya2,PtRan,,100000,700000,8.0
 リザードン,014/P,cardrush,その他,トリプルゲットキャンペーン,1200000,hareruya2,e-P,,500000,700000,2.4
 ミュウ,010/016,cardrush,乱,乱戦！ポケモンスクランブル,850000,hareruya2,PtRan,,180000,670000,4.72
-水の都のラティオス,012/018,cardrush,その他,カードe,750000,hareruya2,eVS,,150000,600000,5.0
 ゼニガメ,007/018,cardrush,その他,マクドナルド,850000,hareruya2,eM,,350000,500000,2.43
 ラティアス☆,065/082,cardrush,その他,アンリミ,1500000,hareruya2,P2,再販,1000000,500000,1.5
 ラティオス☆,066/082,cardrush,その他,アンリミ,1500000,hareruya2,P2,再販,1000000,500000,1.5
-水の都のラティアス,011/018,cardrush,その他,カードe,650000,hareruya2,eVS,,150000,500000,4.33
 キモリ☆,011/084,cardrush,その他,アンリミ,1500000,hareruya2,P3,再販,1100000,400000,1.36
 ライコウ☆,039/106,cardrush,その他,アンリミ,850000,hareruya2,P4,再販,450000,400000,1.89
 ニドキング,088/087,cardrush,その他,1ED/クリスタルタイプ,750000,hareruya2,e3,クリスタルタイプ:1ED,400000,350000,1.88
@@ -23,12 +21,14 @@ name,number,buy_shop,buy_set,buy_variant,buy_price,sell_shop,sell_set,sell_varia
 レジアイス☆,033/086,cardrush,その他,アンリミ,550000,hareruya2,P5,再販,300000,250000,1.83
 レジスチル☆,076/086,cardrush,その他,アンリミ,550000,hareruya2,P5,再販,300000,250000,1.83
 レジロック☆,059/086,cardrush,その他,アンリミ,550000,hareruya2,P5,再販,300000,250000,1.83
+水の都のラティオス,012/018,cardrush,その他,カードe,750000,hareruya2,eVS,,500000,250000,1.5
 カビゴンLV.X,127/DP-P,cardrush,その他,,270000,hareruya2,Pt-P,,32000,238000,8.44
 エンテイ,062/L-P,cardrush,その他,,500000,hareruya2,L-P,,300000,200000,1.67
 エンテイ☆,019/106,cardrush,その他,アンリミ,850000,hareruya2,P4,再販,650000,200000,1.31
 ピチュー,038/DPt-P,cardrush,DPtP,,300000,hareruya2,Pt-P,,150000,150000,2.0
 ポンチョを着たピカチュウ,274/XY-P,cardrush,その他,,750000,hareruya2,XY-P,,600000,150000,1.25
 ミュウEX,051/050,cardrush,その他,,450000,hareruya2,BW5-g,,300000,150000,1.5
+水の都のラティアス,011/018,cardrush,その他,カードe,650000,hareruya2,eVS,,500000,150000,1.3
 レックウザ,055/050,cardrush,BW5,,400000,hareruya2,BW5-g,,270000,130000,1.48
 フウロ,076/070,cardrush,BW7青,,190000,hareruya2,BW7,,80000,110000,2.38
 R団のミュウツーex,064/084,cardrush,その他,,400000,hareruya2,P3,,300000,100000,1.33
@@ -210,6 +210,7 @@ MクチートEX,186/XY-P,cardrush,その他,,10000,yuyutei,xypromo-200,,7980,202
 レックウザVMAX,082/067,cardrush,S7R,,30000,hareruya2,S7R,,28000,2000,1.07
 基本超エネルギー,026/DPt-P,cardrush,その他,DPキラ,8000,hareruya2,Pt-P,,6000,2000,1.33
 チェリム,047/DP-P,cardrush,PROMO,,5900,hareruya2,DP-P,,4000,1900,1.48
+フーパ,157/XY-P,cardrush,XY,,3500,hareruya2,XY-P,,1800,1700,1.94
 イーブイ,068/090,cardrush,DPt2-B,,3600,hareruya2,Pt2,,2000,1600,1.8
 シャワーズ,014/090,cardrush,DPt2-B,,3600,hareruya2,Pt2,,2000,1600,1.8
 ナエトル,001/014,cardrush,DPt-GBna,,6600,hareruya2,PtGB-g,,5000,1600,1.32
@@ -229,7 +230,6 @@ MクチートEX,186/XY-P,cardrush,その他,,10000,yuyutei,xypromo-200,,7980,202
 モウカザル,053/DP-P,cardrush,PROMO,,4400,hareruya2,DP-P,,3000,1400,1.47
 ピカチュウV,001/024,yuyutei,SN,キラ,11000,hareruya2,SN,,9700,1300,1.13
 ロケット団のミュウツーex,130/098,yuyutei,SV10,,7000,hareruya2,SV10,,5700,1300,1.23
-ピカチュウ,033/087,cardrush,その他,,15000,hareruya2,CP6,,13800,1200,1.09
 ミュウツーV,273/S-P,yuyutei,spromo-300,,6000,hareruya2,S-P,,4800,1200,1.25
 ロケット団のミュウツーex,043/M-P,yuyutei,mpromo-100,,9000,hareruya2,M-P,,7800,1200,1.15
 ブースター,011/090,cardrush,DPt2-B,,3600,hareruya2,Pt2,,2500,1100,1.44
@@ -295,7 +295,6 @@ MミュウツーEX,051/131,cardrush,その他,X,20000,yuyutei,CP4,キラ,19800,2
 フシギバナ&ツタージャGX,066/064,hareruya2,SM11a,SA,15000,yuyutei,SM11a,,14800,200,1.01
 ボルケニオンEX,059/054,cardrush,XY11紫,,25000,yuyutei,XY11,,24800,200,1.01
 ポケモンセンターのお姉さん,086/080,cardrush,XY2,,70000,yuyutei,XY2,,69800,200,1.0
-ミュウ,051/087,cardrush,その他,,50000,yuyutei,CP6,,49800,200,1.0
 ライチュウ&アローラライチュウGX,057/054,hareruya2,SM10a,SA,70000,yuyutei,SM10a,,69800,200,1.0
 ライチュウ＆アローラライチュウGX,057/054,cardrush,sm10a,SA,70000,yuyutei,SM10a,,69800,200,1.0
 基本鋼エネルギー,090/BW-P,cardrush,その他,in 東京タワー,4200,hareruya2,BW-P,サマーカーニバルin東京タワー,4000,200,1.05
@@ -323,7 +322,6 @@ MルカリオEX,075/131,cardrush,その他,,7000,yuyutei,CP4,キラ,6980,20,1.0
 カメックスGX,064/054,cardrush,SM9b,,7000,yuyutei,SM9b,,6980,20,1.0
 ガマゲロゲEX,098/096,cardrush,XY3,,8000,yuyutei,XY3,,7980,20,1.0
 グラードンEX,016/049,cardrush,その他,,3000,yuyutei,MMBP,,2980,20,1.01
-ダークライ,023/036,cardrush,CP5,,10000,yuyutei,CP5,キラ,9980,20,1.0
 ダークライEX,072/171,cardrush,XY,,5000,yuyutei,HP,,4980,20,1.0
 ドータクンBREAK,083/171,hareruya2,XY/171,,3000,yuyutei,HP,,2980,20,1.01
 ニドキングBREAK,044/087,cardrush,CP6,,5000,yuyutei,CP6,,4980,20,1.0
