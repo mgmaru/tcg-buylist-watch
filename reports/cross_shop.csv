@@ -179,6 +179,7 @@ MピジョットEX,097/087,cardrush,CP6,,35000,hareruya2,CP6,,30000,5000,1.17
 ブーバー,064/DP-P,cardrush,PROMO,,5900,hareruya2,DP-P,,2500,3400,2.36
 ライチュウ,005/015,cardrush,DPt-GBpi,,3600,hareruya2,PM,,500,3100,7.2
 ランドロス,112/BW-P,cardrush,その他,SR仕様,18000,hareruya2,BW-P,,15000,3000,1.2
+レックウザVMAX,082/067,cardrush,S7R,,30000,hareruya2,S7R,,27000,3000,1.11
 ヤミカラス,062/DP-P,cardrush,PROMO,,5900,hareruya2,DP-P,,3000,2900,1.97
 レントラー,086/DP-P,cardrush,PROMO,,5900,hareruya2,DP-P,,3000,2900,1.97
 ガブリアス,085/100,cardrush,DPt3-B,,6600,hareruya2,Pt3,,4000,2600,1.65
@@ -203,11 +204,12 @@ MクチートEX,186/XY-P,cardrush,その他,,10000,yuyutei,xypromo-200,,7980,202
 バトルシティ,107/BW-P,cardrush,その他,,12000,hareruya2,BW-P,,10000,2000,1.2
 ヒメグマ,010/L-P,cardrush,その他,,10000,hareruya2,L-P,,8000,2000,1.25
 ビクティニEX,071/070,cardrush,BW7,,22000,hareruya2,BW7,,20000,2000,1.1
+ピカチュウV,001/024,yuyutei,SN,キラ,11000,hareruya2,SN,,9000,2000,1.22
 フラダリ,085/080,cardrush,XY2,,30000,hareruya2,XY2,,28000,2000,1.07
+ミュウツーV,273/S-P,yuyutei,spromo-300,,6000,hareruya2,S-P,,4000,2000,1.5
 メリープ,008/L-P,cardrush,その他,,10000,hareruya2,L-P,,8000,2000,1.25
 ライコウEX,071/069,cardrush,BW4,,22000,hareruya2,BW4,,20000,2000,1.1
 リーシャン,087/DP-P,cardrush,PROMO,,4000,hareruya2,DP-P,,2000,2000,2.0
-レックウザVMAX,082/067,cardrush,S7R,,30000,hareruya2,S7R,,28000,2000,1.07
 基本超エネルギー,026/DPt-P,cardrush,その他,DPキラ,8000,hareruya2,Pt-P,,6000,2000,1.33
 チェリム,047/DP-P,cardrush,PROMO,,5900,hareruya2,DP-P,,4000,1900,1.48
 フーパ,157/XY-P,cardrush,XY,,3500,hareruya2,XY-P,,1800,1700,1.94
@@ -228,9 +230,7 @@ MクチートEX,186/XY-P,cardrush,その他,,10000,yuyutei,xypromo-200,,7980,202
 基本鋼エネルギー,029/DPt-P,cardrush,その他,DPキラ,6000,hareruya2,Pt-P,,4500,1500,1.33
 ハヤシガメ,052/DP-P,cardrush,PROMO,,4400,hareruya2,DP-P,,3000,1400,1.47
 モウカザル,053/DP-P,cardrush,PROMO,,4400,hareruya2,DP-P,,3000,1400,1.47
-ピカチュウV,001/024,yuyutei,SN,キラ,11000,hareruya2,SN,,9700,1300,1.13
 ロケット団のミュウツーex,043/M-P,yuyutei,mpromo-100,,9000,hareruya2,M-P,,7700,1300,1.17
-ミュウツーV,273/S-P,yuyutei,spromo-300,,6000,hareruya2,S-P,,4800,1200,1.25
 ブースター,011/090,cardrush,DPt2-B,,3600,hareruya2,Pt2,,2500,1100,1.44
 エモンガEX,062/060,cardrush,XY1,,11000,yuyutei,XY1,,9980,1020,1.1
 メタグロスEX,101/XY-P,cardrush,その他,,6000,yuyutei,xypromo-200,,4980,1020,1.2
@@ -298,6 +298,7 @@ MミュウツーEX,051/131,cardrush,その他,X,20000,yuyutei,CP4,キラ,19800,2
 ライチュウ＆アローラライチュウGX,057/054,cardrush,sm10a,SA,70000,yuyutei,SM10a,,69800,200,1.0
 基本鋼エネルギー,090/BW-P,cardrush,その他,in 東京タワー,4200,hareruya2,BW-P,サマーカーニバルin東京タワー,4000,200,1.05
 基本闘エネルギー,027/DPt-P,cardrush,その他,DPキラ,3200,hareruya2,Pt-P,,3000,200,1.07
+いちげきウーラオスV,075/070,hareruya2,S5I,SA,5100,yuyutei,S5I,,4980,120,1.02
 MカメックスEX,015/060,cardrush,XY1,,6000,yuyutei,XY1,,5980,20,1.0
 MカメックスEX,015/060,hareruya2,XY1-r,,6000,yuyutei,XY1,,5980,20,1.0
 MサーナイトEX,039/054,cardrush,XY11青,,7000,yuyutei,XY11,,6980,20,1.0
@@ -311,7 +312,6 @@ MボスゴドラEX,046/070,cardrush,XY5,,3500,yuyutei,XY5,,3480,20,1.01
 MルカリオEX,053/096,cardrush,XY3,,6000,yuyutei,XY3,,5980,20,1.0
 MルカリオEX,053/096,hareruya2,XY3,,6000,yuyutei,XY3,,5980,20,1.0
 MルカリオEX,075/131,cardrush,その他,,7000,yuyutei,CP4,キラ,6980,20,1.0
-いちげきウーラオスV,075/070,hareruya2,S5I,SA,5000,yuyutei,S5I,,4980,20,1.0
 れんげきウーラオスV,077/070,hareruya2,S5R,SA,3500,yuyutei,S5R,,3480,20,1.01
 アローラサンド,077/SM-P,hareruya2,SM-P,,3000,yuyutei,smpromo-100,,2980,20,1.01
 イベルタルEX,079/131,hareruya2,CP4,,3000,yuyutei,CP4,キラ,2980,20,1.01
@@ -337,4 +337,3 @@ MルカリオEX,075/131,cardrush,その他,,7000,yuyutei,CP4,キラ,6980,20,1.0
 リザードンEX,001/021,hareruya2,XYA,,4000,yuyutei,XYA,,3980,20,1.01
 リザードンEX,001/049,cardrush,その他,,6000,yuyutei,MMBP,,5980,20,1.0
 リザードンEX,011/080,hareruya2,XY2,,5000,yuyutei,XY2,,4980,20,1.0
-レックウザ,084/114,cardrush,sm4+,ミラー,5000,yuyutei,SM4+,キラ,4980,20,1.0
