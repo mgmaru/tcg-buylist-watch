@@ -7,3 +7,4 @@ _site/
 accounts.db
 accounts.db-*
 x_inbox/
+uv.lock

@@ -124,6 +124,16 @@ export PYTHONPATH=src
 python -m buylist_watch x-fetch
 ```
 
+uv を使うなら、入れる作業はいりません。
+
+```sh
+uvx twscrape --db accounts.db add_cookie 好きな名前 "auth_token=xxxx; ct0=yyyy"
+uvx twscrape --db accounts.db accounts
+uv run --extra x python -m buylist_watch x-fetch
+```
+
+Cookie は、ブラウザでXにログインした状態で開発者ツールを開き、Application（Safari は「ストレージ」）→ Cookies → `https://x.com` の `auth_token` と `ct0` の値を写します。
+
 保存される形：
 
 ```
