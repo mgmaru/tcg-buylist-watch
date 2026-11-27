@@ -6,7 +6,7 @@ from pathlib import Path
 
 from buylist_watch import compare, site, store
 from buylist_watch.models import Price
-from buylist_watch.sources import SOURCES, bigweb, cardrush, clabo, dorasuta, hareruya2, yuyutei
+from buylist_watch.sources import SOURCES, bigweb, cardrush, clabo, dorasuta, hareruya2, torecolo, yuyutei
 
 
 def price(item_id="1", name="ゴンベ", number="069/090", buy=60000, sell=None, variant="", set_code="DPt2-B"):
@@ -281,6 +281,88 @@ class ClaboTest(unittest.TestCase):
     def test_changed_page_structure_is_an_error(self):
         with self.assertRaises(ValueError):
             clabo.parse_page("<html>メンテナンス中</html>")
+
+
+TORECOLO_ITEM = """<dl class="block-thumbnail-t--goods js-enhanced-ecommerce-item">
+<dt class="block-thumbnail-t--goods-image"><a href="/shop/g/g{code}/" title="{name}" class="js-enhanced-ecommerce-image">
+<figure class="img-center"><img alt="{name}" src="/img/usr/lazyloading.png"></figure></a></dt>
+<dd class="block-thumbnail-t--goods-description">
+<div class="block-thumbnail-t--goods-category ellipsis line1">{rarity}</div>
+<div class="block-thumbnail-t--goods-name ellipsis line3"><a href="/shop/g/g{code}/" title="{name}" class="js-enhanced-ecommerce-goods-name" data-category="拡張パック(20740000)" data-brand="">{name}</a></div>
+<div class="variation-name js-enhanced-ecommerce-variation-name ellipsis line1">（商品状態・キズなし買取）</div>
+<div class="block-thumbnail-t--price-infos">{price}</div>
+</dd></dl>"""
+TORECOLO_BUY = ('<div class="block-thumbnail-t--price price js-enhanced-ecommerce-goods-price">'
+                '<span class="block-thumbnail-t--purchaseprice-title purchase-s-price-title">強化買取価格</span>{:,}円</div>')
+TORECOLO_SELL = '<div class="block-thumbnail-t--price price js-enhanced-ecommerce-goods-price">{:,}円</div>'
+
+
+def torecolo_page(path, items, total=None, next_page=None):
+    body = "".join(TORECOLO_ITEM.format(code=code, name=name, rarity=rarity,
+                                        price=(TORECOLO_BUY if buy else TORECOLO_SELL).format(price))
+                   for code, name, rarity, price, buy in items)
+    count = f"<div>{total:,} 件あります</div>" if total is not None else ""
+    pager = f'<a href="{path}_p{next_page}/">{next_page}</a>' if next_page else ""
+    return count + pager + body
+
+
+class TorecoloTest(unittest.TestCase):
+    def test_parse_code(self):
+        cases = {"101-086-SV11W-B-S": ("101/086", "SV11W"), "001-165-SV2A-BM1-S": ("001/165", "SV2A"),
+                 "217-XY-P-S": ("217/XY-P", "XY-P"), "036-XY-P1-S": ("036/XY-P", "XY-P"), "SM-P009-S": ("009/SM-P", "SM-P"),
+                 "PC-KK1-071-128-S": ("071/128", "KK1"), "013-PLAY-S": ("013/PLAY", "PLAY"),
+                 "L1-001-S": ("", ""), "PC-AR-S": ("", "")}
+        for code, want in cases.items():
+            self.assertEqual(torecolo.parse_code(code), want, code)
+
+    def test_split_name(self):
+        cases = {"フシギダネ[ミラー仕様][マスターボール柄]": ("フシギダネ", "ミラー仕様 マスターボール柄"),
+                 "ギラティナＶ[ＳＡ仕様]": ("ギラティナV", "SA仕様"),  # 全角の英数字は半角にそろえる
+                 "ピカチュウ＆ゼクロムＧＸ": ("ピカチュウ&ゼクロムGX", ""),
+                 "ミュウ【古代文字】[２０１９版]": ("ミュウ", "古代文字 2019版"),
+                 "ミラー版）基本悪エネルギー": ("基本悪エネルギー", "ミラー版"),
+                 # 人名は名前の一部として残す
+                 "ボスの指令[ゲーチス]": ("ボスの指令[ゲーチス]", ""),
+                 "ボスの指令[カラスバ][ＳＲ仕様]": ("ボスの指令[カラスバ]", "SR仕様")}
+        for raw, want in cases.items():
+            self.assertEqual(torecolo.split_name(raw), want, raw)
+
+    def test_parse_page_keeps_only_rows_with_a_buy_price(self):
+        page = torecolo_page("/shop/e/ePCchokai", [("105-095-SM9-B-S", "ラティアス＆ラティオスＧＸ", "ＳＲ", 480000, True),
+                                                   ("999-999-XX-B-A", "販売の商品", "Ｃ", 100, False)], total=2)
+        prices, count, total = torecolo.parse_page(page)
+        self.assertEqual((count, total), (2, 2))
+        self.assertEqual([(p.item_id, p.name, p.set_code, p.number, p.rarity, p.buy_price) for p in prices],
+                         [("105-095-SM9-B-S", "ラティアス&ラティオスGX", "SM9", "105/095", "SR", 480000)])
+
+    def fake(self, pages):
+        class Fake:
+            urls = []
+
+            def get(self, url):
+                self.urls.append(url)
+                return pages[url.replace(torecolo.BASE, "")].encode()
+
+        return Fake()
+
+    TOP = '<a href="/shop/e/ePCchokai/">超強化</a><a href="/shop/e/ePCUPkai/">UP</a><a href="/shop/e/ePCupkai/">UP</a><a href="/shop/c/c1074/">買う</a>'
+
+    def test_fetch_finds_lists_on_the_top_page_and_reads_each_card_once(self):
+        a, b = ("001-100-SV1-B-S", "カードA", "ＳＲ", 900, True), ("002-100-SV1-B-S", "カードB", "ＳＲ", 800, True)
+        fake = self.fake({"/shop/c/c2074/": self.TOP,
+                          "/shop/e/ePCchokai/": torecolo_page("/shop/e/ePCchokai", [a], total=2, next_page=2),
+                          "/shop/e/ePCchokai_p2/": torecolo_page("/shop/e/ePCchokai", [b], total=2),
+                          "/shop/e/ePCUPkai/": torecolo_page("/shop/e/ePCUPkai", [b], total=1)})  # B は2つのリストに載っている
+        self.assertEqual([p.item_id for p in torecolo.fetch(fake)], ["001-100-SV1-B-S", "002-100-SV1-B-S"])
+        self.assertEqual(len(fake.urls), 4)  # 大文字・小文字だけが違うリンクは1回だけ読む
+
+    def test_fetch_stops_when_a_list_is_incomplete_or_no_list_is_found(self):
+        a = ("001-100-SV1-B-S", "カードA", "ＳＲ", 900, True)
+        with self.assertRaises(ValueError):  # 2件とあるのに1件しか読めない
+            list(torecolo.fetch(self.fake({"/shop/c/c2074/": '<a href="/shop/e/ePCchokai/">超強化</a>',
+                                           "/shop/e/ePCchokai/": torecolo_page("/shop/e/ePCchokai", [a], total=2)})))
+        with self.assertRaises(ValueError):
+            list(torecolo.fetch(self.fake({"/shop/c/c2074/": "<html>メンテナンス中</html>"})))
 
 
 YUYU_CARD = """<div class="card-product position-relative mt-4 {cls}"><a
@@ -608,7 +690,7 @@ class SiteTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store.save(Path(tmp), "cardrush", [price("1")], "2026-11-11T05:00:00+09:00")
             shops = site.build_data(Path(tmp))["shops"]
-            # 店の並び順は、画面が履歴やグラフの色を引くときの番号になる。新しい店は最後に足す
+            # 店の並び順で、グラフの線の色と形が決まる。新しい店は最後に足す
             self.assertEqual([s["id"] for s in shops][:3], ["cardrush", "hareruya2", "yuyutei"])
             self.assertEqual([s["id"] for s in shops], list(SOURCES))
             self.assertEqual(shops[0]["label"], "カードラッシュ")
