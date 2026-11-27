@@ -75,6 +75,12 @@ def cmd_site(args) -> int:
     return 0
 
 
+def cmd_x_fetch(args) -> int:
+    from . import xfetch  # twscrape を使うのはこのコマンドだけ。ほかのコマンドは入れていなくても動く
+
+    return xfetch.run(Path(args.accounts), Path(args.db), Path(args.out), args.days, args.limit)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="buylist-watch", description="カードショップの買取表を取得して比べる")
     parser.add_argument("--data-dir", default="data")
@@ -100,6 +106,14 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--web-dir", default="web")
     s.add_argument("--out", default="_site")
     s.set_defaults(func=cmd_site)
+
+    x = sub.add_parser("x-fetch", help="Xに店が出す買取表の投稿と画像を、手元に保存する（twscrape が必要）")
+    x.add_argument("--accounts", default="x_accounts.txt", help="対象のXアカウントを1行に1つ書いたファイル")
+    x.add_argument("--db", default="accounts.db", help="twscrape のログイン情報のファイル")
+    x.add_argument("--out", default="x_inbox", help="保存先のフォルダ")
+    x.add_argument("--days", type=int, default=3, help="何日前までの投稿を保存するか")
+    x.add_argument("--limit", type=int, default=20, help="1アカウントあたり、新しいほうから何件まで見るか")
+    x.set_defaults(func=cmd_x_fetch)
 
     args = parser.parse_args(argv)
     return args.func(args)

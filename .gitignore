@@ -3,3 +3,8 @@ __pycache__/
 *.egg-info/
 .venv/
 _site/
+# x-fetch: Xのログイン情報と、取ってきた投稿・画像。リポジトリには置かない
+accounts.db
+accounts.db-*
+x_inbox/
+uv.lock
