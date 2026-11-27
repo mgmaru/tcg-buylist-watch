@@ -1,8 +1,8 @@
 """取得元の店。
 
 店を足すときは、モジュールを作ってここの SOURCES の最後に登録する。
-画面は店を番号（この並び順）で覚えているので、途中に入れたり並べ替えたりしない
-（価格の履歴の持ち主やグラフの色がずれる）。
+この並び順が、画面での店の番号になる。番号でグラフの線の色と形が決まるので、途中に入れたり
+並べ替えたりすると、それまでの店の色が変わってしまう。
 
 モジュールが持つもの:
   NAME   保存先のフォルダ名にもなる、英数字の識別子
@@ -12,7 +12,7 @@
   fetch(fetcher, max_pages)  Price を1件ずつ返す
 """
 
-from . import bigweb, cardrush, dorasuta, hareruya2, yuyutei
+from . import bigweb, cardrush, dorasuta, hareruya2, torecolo, yuyutei
 
 SOURCES = {
     cardrush.NAME: cardrush,
@@ -20,6 +20,7 @@ SOURCES = {
     yuyutei.NAME: yuyutei,
     bigweb.NAME: bigweb,
     dorasuta.NAME: dorasuta,
+    torecolo.NAME: torecolo,
 }
 
 
