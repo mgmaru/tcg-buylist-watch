@@ -6,7 +6,7 @@ from pathlib import Path
 
 from buylist_watch import compare, site, store
 from buylist_watch.models import Price
-from buylist_watch.sources import SOURCES, bigweb, cardrush, dorasuta, hareruya2, yuyutei
+from buylist_watch.sources import SOURCES, bigweb, cardrush, clabo, dorasuta, hareruya2, yuyutei
 
 
 def price(item_id="1", name="ゴンベ", number="069/090", buy=60000, sell=None, variant="", set_code="DPt2-B"):
@@ -201,6 +201,86 @@ class DorasutaTest(unittest.TestCase):
             dorasuta.parse_page("<html>メンテナンス中</html>")
         with self.assertRaises(ValueError):
             list(dorasuta.fetch(type("Empty", (), {"get": lambda self, url: dora_page([]).encode()})()))
+
+
+CLABO_CELL = """<li class="list_item_cell wrapped_item flex_layout list_item_{pid}"><div class="item_data">
+<a href="https://www.c-labo-kaitori.jp/product/{pid}" class="item_data_link"><div class="list_item_data"><p class="item_name">
+<span class="goods_name">{title}</span>
+</p><div class="item_info"><div class="price"><p class="selling_price">
+<span class="figure">{price}<span class="currency_label after_price">円</span></span></p></div>
+<p class="stock">募集数8枚</p></div></div></a></div></li>"""
+
+
+def clabo_page(series, items, total, last=1):
+    pager = "".join(f'<a href="/product-list/{series}?num=120&amp;sort=price-desc&amp;page={n}" class="pager_btn">{n}</a>'
+                    for n in range(2, last + 1))
+    cells = "".join(CLABO_CELL.format(pid=pid, title=title, price=f"{price:,}") for pid, title, price in items)
+    return f'<div class="count"><span class="number">{total:,}</span><span class="count_suffix">件</span></div>{pager}<ul>{cells}</ul>'
+
+
+class ClaboTest(unittest.TestCase):
+    def test_parse_title(self):
+        cases = {
+            "【ポケカ】メガレックウザex【MUR】M6 113/076": ("メガレックウザex", "", "M6", "113/076", "MUR"),
+            "【ポケカ】メガリザードンYex(MUR仕様)【-】MC 766/742": ("メガリザードンYex", "MUR仕様", "MC", "766/742", ""),
+            "《未開封》【ポケカ】ピカチュウex(FUR仕様)【-】PROMO 131/M-P": ("ピカチュウex", "未開封 FUR仕様", "PROMO", "131/M-P", ""),
+            "【ポケカ】グレイシア【ミラー/マスターボール柄】SV8A 040/187": ("グレイシア", "ミラー/マスターボール柄", "SV8A", "040/187", ""),
+            "【ポケカ】ブラッキー(YU NAGABA)【ミラー】PROMO 067/SV-P": ("ブラッキー", "ミラー YU NAGABA", "PROMO", "067/SV-P", ""),
+            "【ポケカ】ミュウ【RGB】M6a R/RGB (背景:赤)": ("ミュウ", "背景:赤", "M6a", "R/RGB", "RGB"),
+            "【ポケカ】ピカチュウ(01/30)【-】M6a 017/103": ("ピカチュウ", "01/30", "M6a", "017/103", ""),
+            # 人名や姿は名前の一部として残す。人名と仕様が1つのかっこに入っていれば、仕様だけ外す
+            "【ポケカ】ボスの指令(ゲーチス)【SR】SV1A 095/073": ("ボスの指令(ゲーチス)", "", "SV1A", "095/073", "SR"),
+            "【ポケカ】ボスの指令(カラスバ/SR仕様)【-】MC 760/742": ("ボスの指令(カラスバ)", "SR仕様", "MC", "760/742", ""),
+            "【ポケカ】ゲンガー(グレート)【-】M6a 150/103": ("ゲンガー(グレート)", "", "M6a", "150/103", ""),
+            # 形が違うもの（まとめ買取の案内など）は、名前だけ
+            "【ポケカ】ポケモンカード　まとめ買取(郵送限定)": ("ポケモンカード　まとめ買取(郵送限定)", "", "", "", ""),
+        }
+        for raw, want in cases.items():
+            self.assertEqual(clabo.parse_title(raw), want, raw)
+
+    def test_parse_page(self):
+        # キーワード検索の結果では、商品名の一部がタグで囲まれる
+        page = clabo_page(927, [("99207", "【ポケカ】メガレックウザex【MUR】M6 113/076", 50000),
+                                ("105148", ' <span class="result_emphasis"><b>【ポケカ】</b></span>ルナトーン【R】M1L 026/063', 20)],
+                          total=367, last=4)
+        prices, total, last = clabo.parse_page(page)
+        self.assertEqual((total, last), (367, 4))
+        self.assertEqual([(p.item_id, p.name, p.set_code, p.number, p.rarity, p.buy_price) for p in prices],
+                         [("99207", "メガレックウザex", "M6", "113/076", "MUR", 50000), ("105148", "ルナトーン", "M1L", "026/063", "R", 20)])
+
+    def fake(self, pages):
+        class Fake:
+            urls = []
+
+            def get(self, url):
+                self.urls.append(url)
+                series, page = int(url.split("/product-list/")[1].split("?")[0]), int(url.rsplit("=", 1)[1])
+                return pages.get((series, page), clabo_page(series, [], 0)).encode()
+
+        return Fake()
+
+    def test_fetch_walks_every_series_by_price(self):
+        first = next(iter(clabo.SERIES))
+        fake = self.fake({(first, 1): clabo_page(first, [("1", "【ポケカ】A【SR】M6 001/076", 900)], total=2, last=2),
+                          (first, 2): clabo_page(first, [("2", "【ポケカ】B【SR】M6 002/076", 800)], total=2, last=2),
+                          (645, 1): clabo_page(645, [("3", "【ポケカ】C【AR】SV10 099/098", 100)], total=1)})
+        self.assertEqual([p.item_id for p in clabo.fetch(fake)], ["1", "2", "3"])
+        self.assertEqual(len(fake.urls), len(clabo.SERIES) + 1)
+        self.assertTrue(all("sort=price-desc" in u for u in fake.urls))
+        self.assertEqual([p.item_id for p in clabo.fetch(self.fake({(first, 1): clabo_page(first, [("1", "【ポケカ】A【SR】M6 001/076", 900)],
+                                                                                         total=2, last=2)}), max_pages=1)], ["1"])
+
+    def test_fetch_stops_when_items_are_missing(self):
+        # 一覧には2件とあるのに、読めたのが1件（並び順がずれて同じ商品が2回出た）
+        first = next(iter(clabo.SERIES))
+        cell = [("1", "【ポケカ】A【SR】M6 001/076", 900)]
+        fake = self.fake({(first, 1): clabo_page(first, cell, total=2, last=2), (first, 2): clabo_page(first, cell, total=2, last=2)})
+        with self.assertRaises(ValueError):
+            list(clabo.fetch(fake))
+
+    def test_changed_page_structure_is_an_error(self):
+        with self.assertRaises(ValueError):
+            clabo.parse_page("<html>メンテナンス中</html>")
 
 
 YUYU_CARD = """<div class="card-product position-relative mt-4 {cls}"><a
