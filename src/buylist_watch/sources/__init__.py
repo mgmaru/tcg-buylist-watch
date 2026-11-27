@@ -12,9 +12,15 @@
   fetch(fetcher, max_pages)  Price を1件ずつ返す
 """
 
-from . import bigweb, cardrush, hareruya2, yuyutei
+from . import bigweb, cardrush, dorasuta, hareruya2, yuyutei
 
-SOURCES = {cardrush.NAME: cardrush, hareruya2.NAME: hareruya2, yuyutei.NAME: yuyutei, bigweb.NAME: bigweb}
+SOURCES = {
+    cardrush.NAME: cardrush,
+    hareruya2.NAME: hareruya2,
+    yuyutei.NAME: yuyutei,
+    bigweb.NAME: bigweb,
+    dorasuta.NAME: dorasuta,
+}
 
 
 def describe(name: str) -> dict:

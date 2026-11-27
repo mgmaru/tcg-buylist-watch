@@ -6,7 +6,7 @@ from pathlib import Path
 
 from buylist_watch import compare, site, store
 from buylist_watch.models import Price
-from buylist_watch.sources import SOURCES, bigweb, cardrush, hareruya2, yuyutei
+from buylist_watch.sources import SOURCES, bigweb, cardrush, dorasuta, hareruya2, yuyutei
 
 
 def price(item_id="1", name="ゴンベ", number="069/090", buy=60000, sell=None, variant="", set_code="DPt2-B"):
@@ -121,6 +121,88 @@ class BigwebTest(unittest.TestCase):
             bigweb.parse(b'{"success": false}')
 
 
+DORA_ITEM = """<div class="element"><div class="content"><a href="/pokemon-card/product?pid={pid}">
+<img class="lazyload" alt="{name}"/></a>{sold}</div><div class="description"><ul>
+<li class="change_hight">
+  <a href="/pokemon-card/product?pid={pid}">
+    {name}
+  </a>
+  <p>
+    {rarity}
+  </p>
+  <p>
+    PN000000
+  </p>
+</li>
+<li>{price}円</li>
+</ul></div></div>
+<div class="list"><a href="/pokemon-card/product?pid={pid}">{name}</a><p>{rarity}</p><div>{price}円</div></div>"""
+
+
+def dora_page(items, now=1, last=1):
+    body = "".join(DORA_ITEM.format(pid=pid, name=name, rarity=rarity, price=f"{price:,}",
+                                    sold='<a class="condition soldout"><span>SOLDOUT</span></a>' if sold else "")
+                   for pid, name, rarity, price, sold in items)
+    return (f'<input type="hidden" id="page_now" name="page_now" value="{now}" />'
+            f'<input type="hidden" id="page_max" name="page_max" value="{last}" />'
+            f'<div class="pager"><div class="page_num_cur">{now}</div></div>' + body)
+
+
+class DorasutaTest(unittest.TestCase):
+    def test_parse_name(self):
+        cases = {
+            ("ミュウツーex(134/103)", "FUR"): ("ミュウツーex", "", "", "134/103", "FUR"),
+            ("ルギアV(109/098 SR)", "SR"): ("ルギアV", "", "", "109/098", "SR"),
+            ("ジラーチ(089/SM-P)", "プロモ"): ("ジラーチ", "", "", "089/SM-P", "プロモ"),
+            # レアリティの欄の「ミラー」「ホイル」は仕様。名前に同じ言葉があれば1つにまとめる
+            ("モンジャラ(114/165)(ミラー/マスターボール)", "ミラー"): ("モンジャラ", "ミラー/マスターボール", "", "114/165", ""),
+            ("ジラーチ(ミラー/白枠)(090/173)", "ミラー"): ("ジラーチ", "ミラー/白枠", "", "090/173", ""),
+            ("カメックス&ポッチャマGX(070/064 SR)[SA]", "SR"): ("カメックス&ポッチャマGX", "SA", "", "070/064", "SR"),
+            ("ラフレシアGX[SA](062/049)", "SR"): ("ラフレシアGX", "SA", "", "062/049", "SR"),
+            ("リザードンVMAX(C/キラ)(002/021)【SC】", "ホイル"): ("リザードンVMAX", "ホイル キラ SC", "", "002/021", "C"),
+            # 人名は名前の一部として残す
+            ("ボスの指令(サカキ)(112/096 HR)", "HR"): ("ボスの指令(サカキ)", "", "", "112/096", "HR"),
+            ("ボスの指令(カラスバ)(SR仕様)(760/742)", "ホイル"): ("ボスの指令(カラスバ)", "ホイル SR仕様", "", "760/742", ""),
+            # 型番がない商品は、名前を分けない
+            ("【BW8】リーフィア(エナジークラッシュ/リーフブレード)", "未登録"): ("リーフィア(エナジークラッシュ/リーフブレード)", "", "BW8", "", ""),
+            ("ジムバッジ(サカキ)(ホロ)(XY-P)(黄枠)", "プロモ"): ("ジムバッジ(サカキ)", "ホロ 黄枠", "", "XY-P", "プロモ"),
+        }
+        for (raw, rarity), want in cases.items():
+            self.assertEqual(dorasuta.parse_name(raw, rarity), want, raw)
+
+    def test_parse_page_reads_each_product_once(self):
+        # 1つの商品が、画像つきの並びと一覧の並びの2回出てくる。SOLDOUT の印があっても買取価格は記録する
+        page = dora_page([("711193", "ミュウツーex(134/103)", "FUR", 2500, False),
+                          ("275925", "ジラーチ(089/SM-P)", "プロモ", 20000, True)], now=2, last=148)
+        prices, now, last = dorasuta.parse_page(page)
+        self.assertEqual((now, last), (2, 148))
+        self.assertEqual([(p.item_id, p.name, p.number, p.rarity, p.buy_price, p.sell_price) for p in prices],
+                         [("711193", "ミュウツーex", "134/103", "FUR", 2500, None), ("275925", "ジラーチ", "089/SM-P", "プロモ", 20000, None)])
+
+    def test_fetch_walks_pages_and_stops_when_paging_breaks(self):
+        class Fake:
+            def __init__(self, stuck=False):
+                self.stuck, self.urls = stuck, []
+
+            def get(self, url):
+                self.urls.append(url)
+                n = 1 if self.stuck else len(self.urls)
+                return dora_page([(str(n), f"カード{n}(00{n}/100)", "C", 10, False)], now=n, last=3).encode()
+
+        fake = Fake()
+        self.assertEqual([p.item_id for p in dorasuta.fetch(fake)], ["1", "2", "3"])
+        self.assertIn("form400200_params%5B1%5D=2", fake.urls[1])
+        self.assertEqual(len(list(dorasuta.fetch(Fake(), max_pages=1))), 1)
+        with self.assertRaises(ValueError):  # 2ページ目を頼んでも1ページ目が返る
+            list(dorasuta.fetch(Fake(stuck=True)))
+
+    def test_changed_page_structure_is_an_error(self):
+        with self.assertRaises(ValueError):
+            dorasuta.parse_page("<html>メンテナンス中</html>")
+        with self.assertRaises(ValueError):
+            list(dorasuta.fetch(type("Empty", (), {"get": lambda self, url: dora_page([]).encode()})()))
+
+
 YUYU_CARD = """<div class="card-product position-relative mt-4 {cls}"><a
 href="https://yuyu-tei.jp/{kind}/poc/card/{ver}/{cid}"><div class="position-relative product-img">
 <img src="x.jpg" alt="{number} {rarity} {name}" class="card img-fluid"/></div></a>
@@ -220,6 +302,16 @@ class CompareTest(unittest.TestCase):
     def test_fullwidth_and_spaces_match(self):
         self.assertEqual(compare.norm("ＭミュウツーＥＸ "), "MミュウツーEX")
 
+    def test_names_match_across_shop_punctuation(self):
+        # 人名の付け方や中黒は店ごとに違う。型番が同じなら、同じカードとして扱う
+        names = ["ボスの指令/サカキ", "ボスの指令[サカキ]", "ボスの指令（サカキ）", "ボスの指令 サカキ"]
+        self.assertEqual({compare.name_key(n) for n in names}, {"ボスの指令サカキ"})
+        self.assertEqual(compare.name_key("カプ・コケコGX"), compare.name_key("カプコケコGX"))
+        loaded = {f"shop{i}": [price(str(i), name=n, number="092/096")] for i, n in enumerate(names)}
+        self.assertEqual(len(set(compare.assign_groups(loaded).values())), 1)
+        other = {"a": [price("1", name="ボスの指令/サカキ", number="092/096")], "b": [price("2", name="ボスの指令[ゲーチス]", number="092/096")]}
+        self.assertEqual(len(set(compare.assign_groups(other).values())), 2)
+
 
 class VariantTest(unittest.TestCase):
     def test_variant_tags_unify_shop_wording(self):
@@ -230,6 +322,19 @@ class VariantTest(unittest.TestCase):
         self.assertEqual(compare.variant_tags("未開封/乱戦！ポケモンスクランブル")[0], ("未開封",))
         self.assertEqual(compare.variant_tags("RR仕様"), ((), ""))  # レアリティの言い換えは区別に使わない
         self.assertEqual(compare.variant_tags("ミラー仕様"), compare.variant_tags("ミラー"))
+        # 新しく足した店の書き方
+        self.assertEqual(compare.variant_tags("ミラー/マスターボール")[0], ("マスターボールミラー",))  # ドラゴンスター
+        self.assertEqual(compare.variant_tags("モンスターボール柄ミラー")[0], ("モンスターボールミラー",))  # BIG-WEB
+        self.assertEqual(compare.variant_tags("ミラー エネルギーマーク柄")[0], ("エネルギーミラー",))
+
+    def test_corrected_version_is_not_the_error_version(self):
+        self.assertEqual(compare.variant_tags("エラー版")[0], ("エラー",))
+        self.assertEqual(compare.variant_tags("エラ―版")[0], ("エラー",))  # 横棒が別の文字
+        self.assertEqual(compare.variant_tags("エラー修正版")[0], ("修正版",))
+        self.assertEqual(compare.variant_tags("修正版")[0], ("修正版",))
+        g = self.groups(a=["エラー版"], b=["エラー修正版"], c=["修正版"])
+        self.assertEqual(g[("b", "エラー修正版")], g[("c", "修正版")])
+        self.assertNotEqual(g[("a", "エラー版")], g[("b", "エラー修正版")])
 
     def groups(self, **shops):
         loaded = {shop: [price(f"{shop}{n}", name="ゲンガー", number="094/165", variant=v) for n, v in enumerate(variants)]

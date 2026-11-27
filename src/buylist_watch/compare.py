@@ -23,11 +23,21 @@ def norm(text: str) -> str:
     return "".join(unicodedata.normalize("NFKC", text).split())
 
 
+# 名前の中の区切りやかっこ。「ボスの指令/サカキ」「ボスの指令[サカキ]」「ボスの指令(サカキ)」、
+# 「カプ・コケコ」「カプコケコ」のように、店によって書き方が違う
+_NAME_MARKS = re.compile(r"[\[\]()【】/・:]")
+
+
+def name_key(name: str) -> str:
+    """店ごとの区切りやかっこの違いをならした名前。突き合わせにだけ使い、画面には出さない。"""
+    return _NAME_MARKS.sub("", norm(name))
+
+
 def match_key(p: Price) -> tuple[str, str] | None:
     """突き合わせに使うキー。型番がない商品は誤って一致しやすいので対象外にする。"""
     if not p.number or "/" not in p.number:
         return None
-    return norm(p.name), norm(p.number)
+    return name_key(p.name), norm(p.number)
 
 
 # 値段を大きく左右する仕様。店をまたいでも、これが違えば必ず別のカードとして扱う。
@@ -41,7 +51,8 @@ _HARD_RULES: list[list[tuple[str, str]]] = [
         ("ボールミラー", r"ボール(ミラー|柄)"),
     ],
     [("未開封", r"未開封")],
-    [("エラー", r"エラー")],
+    # 「エラー修正版」は、エラーを直したあとの版。エラー版とは別のカード
+    [("修正版", r"(エラー)?修正版"), ("エラー", r"エラ[ー―-]")],  # 横棒を別の文字で書いている店がある
     [("色違い", r"色違い")],
     [("ジャンボ", r"ジャンボ")],
     [("英語版", r"英語版?"), ("中国語版", r"中国語版?"), ("韓国語版", r"韓国語版?")],
