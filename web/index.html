@@ -88,6 +88,17 @@ a{color:var(--accent)}
 .s0{stroke:var(--s0)} .s1{stroke:var(--s1)} .s2{stroke:var(--s2)} .s3{stroke:var(--s3)} .s4{stroke:var(--s4)} .s5{stroke:var(--s5)} .s6{stroke:var(--s6)} .s7{stroke:var(--s7)}
 .f0{fill:var(--s0)} .f1{fill:var(--s1)} .f2{fill:var(--s2)} .f3{fill:var(--s3)} .f4{fill:var(--s4)} .f5{fill:var(--s5)} .f6{fill:var(--s6)} .f7{fill:var(--s7)}
 .b0{background:var(--s0)} .b1{background:var(--s1)} .b2{background:var(--s2)} .b3{background:var(--s3)} .b4{background:var(--s4)} .b5{background:var(--s5)} .b6{background:var(--s6)} .b7{background:var(--s7)}
+/* 店が4つを超えると、色だけでは見分けにくい組が出る（緑と青緑、橙と赤など）。4番目からは線を破線・点線に、
+   点を白抜きにして、色と形の両方で見分けられるようにする。凡例の線も同じ形にする */
+.trend-line.s3,.trend-line.s4,.trend-line.s5{stroke-dasharray:6 3}
+.trend-line.s6,.trend-line.s7{stroke-dasharray:1.5 3.5}
+.trend-dot.f3{stroke:var(--s3)} .trend-dot.f4{stroke:var(--s4)} .trend-dot.f5{stroke:var(--s5)} .trend-dot.f6{stroke:var(--s6)} .trend-dot.f7{stroke:var(--s7)}
+.trend-dot.f3,.trend-dot.f4,.trend-dot.f5,.trend-dot.f6,.trend-dot.f7{fill:var(--surface)}
+.b3{background:repeating-linear-gradient(90deg,var(--s3) 0 6px,transparent 6px 8px)}
+.b4{background:repeating-linear-gradient(90deg,var(--s4) 0 6px,transparent 6px 8px)}
+.b5{background:repeating-linear-gradient(90deg,var(--s5) 0 6px,transparent 6px 8px)}
+.b6{background:repeating-linear-gradient(90deg,var(--s6) 0 2px,transparent 2px 4px)}
+.b7{background:repeating-linear-gradient(90deg,var(--s7) 0 2px,transparent 2px 4px)}
 .trend-legend{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:11px}
 .trend-legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
 .trend-tip{font-size:11px;min-height:16px}
