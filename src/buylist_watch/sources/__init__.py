@@ -12,7 +12,7 @@
   fetch(fetcher, max_pages)  Price を1件ずつ返す
 """
 
-from . import bigweb, cardrush, dorasuta, hareruya2, torecolo, yuyutei
+from . import bigweb, cardrush, clabo, dorasuta, hareruya2, torecolo, yuyutei
 
 SOURCES = {
     cardrush.NAME: cardrush,
@@ -20,6 +20,7 @@ SOURCES = {
     yuyutei.NAME: yuyutei,
     bigweb.NAME: bigweb,
     dorasuta.NAME: dorasuta,
+    clabo.NAME: clabo,
     torecolo.NAME: torecolo,
 }
 
