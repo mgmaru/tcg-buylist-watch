@@ -16,6 +16,8 @@ from ..http import Fetcher
 from ..models import Price
 
 NAME = "yuyutei"
+LABEL = "遊々亭"
+LINK = ("遊々亭の買取表", "https://yuyu-tei.jp/buy/poc/s/search?search_word={name}")
 BUY_URL = "https://yuyu-tei.jp/buy/poc/s/search?search_word=&page={page}"
 SELL_URL = "https://yuyu-tei.jp/sell/poc/s/search?search_word=&page={page}"
 
