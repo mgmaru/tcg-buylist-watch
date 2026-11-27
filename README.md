@@ -117,8 +117,7 @@ pip install twscrape
 twscrape --db accounts.db add_cookie 好きな名前 "auth_token=xxxx; ct0=yyyy"
 twscrape --db accounts.db accounts   # active が True なら使える
 
-# 2. 対象のXアカウントを、1行に1つ書く（@ はあってもなくてもよい。# から後ろはメモ）
-echo "@店のアカウント  # 店の名前" >> x_accounts.txt
+# 2. 対象のXアカウントは x_accounts.txt に書いてある。足すときは、1行に1つ書く（@ はあってもなくてもよい。# から後ろはメモ）
 
 # 3. 取ってくる（直近3日、1アカウントあたり新しいほうから20件まで）
 export PYTHONPATH=src
