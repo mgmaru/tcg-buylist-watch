@@ -8,6 +8,10 @@ version = "0.1.0"
 description = "カードショップの買取表を定期取得して、価格の変化と店ごとの差を記録する"
 requires-python = ">=3.10"
 
+[project.optional-dependencies]
+# x-fetch（Xの投稿の取得）にだけ使う。ほかのコマンドは外部ライブラリなしで動く
+x = ["twscrape>=0.21"]
+
 [project.scripts]
 buylist-watch = "buylist_watch.cli:main"
 

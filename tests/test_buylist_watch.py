@@ -4,7 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from buylist_watch import compare, site, store
+import asyncio
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+
+from buylist_watch import compare, site, store, xfetch
 from buylist_watch.models import Price
 from buylist_watch.sources import SOURCES, bigweb, cardrush, clabo, dorasuta, hareruya2, torecolo, yuyutei
 
@@ -719,6 +723,102 @@ class SiteTest(unittest.TestCase):
             site.build(root / "data", root / "web", root / "_site")
             self.assertTrue((root / "_site" / "index.html").exists())
             self.assertEqual(json.loads((root / "_site" / "data.json").read_text(encoding="utf-8"))["shops"][0]["count"], 1)
+
+
+def x_tweet(tweet_id, days_ago=0, photos=("https://pbs.twimg.com/media/AAA.jpg",), repost=False, text="本日の買取表です"):
+    return SimpleNamespace(id_str=str(tweet_id), user=SimpleNamespace(username="shop_a"), url=f"https://x.com/shop_a/status/{tweet_id}",
+                           date=datetime.now(timezone.utc) - timedelta(days=days_ago, minutes=1), rawContent=text,
+                           media=SimpleNamespace(photos=[SimpleNamespace(url=u) for u in photos]) if photos is not None else None,
+                           retweetedTweet=SimpleNamespace() if repost else None)
+
+
+class FakeX:
+    """twscrape の API の代わり。user_by_login と user_tweets だけを持つ。"""
+
+    def __init__(self, tweets, missing=()):
+        self.tweets, self.missing, self.asked = tweets, missing, []
+
+    async def user_by_login(self, login):
+        return None if login in self.missing else SimpleNamespace(id=1, username=login)
+
+    async def user_tweets(self, uid, limit=-1):
+        self.asked.append(limit)
+        for t in self.tweets[:limit]:
+            yield t
+
+
+class XFetchTest(unittest.TestCase):
+    def test_load_accounts_skips_comments_and_at_marks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "x_accounts.txt"
+            path.write_text("# 買取表を出す店\n@shop_a\nshop_b  # 2号店\n\n@shop_a\n", encoding="utf-8")
+            self.assertEqual(xfetch.load_accounts(path), ["shop_a", "shop_b"])
+
+    def test_post_record_keeps_only_own_posts_with_photos(self):
+        rec = xfetch.post_record(x_tweet(10, photos=("https://pbs.twimg.com/media/A.jpg", "https://pbs.twimg.com/media/B.png")))
+        self.assertEqual((rec["id"], rec["account"], rec["url"], rec["photos"]),
+                         ("10", "shop_a", "https://x.com/shop_a/status/10", ["https://pbs.twimg.com/media/A.jpg", "https://pbs.twimg.com/media/B.png"]))
+        self.assertTrue(rec["posted_at"].endswith("+09:00"))  # 日時は日本時間で残す
+        self.assertIsNone(xfetch.post_record(x_tweet(11, photos=())))      # 画像なし
+        self.assertIsNone(xfetch.post_record(x_tweet(12, photos=None)))    # メディアなし
+        self.assertIsNone(xfetch.post_record(x_tweet(13, repost=True)))    # ほかの人の投稿の再投稿
+
+    def fetch(self, tmp, tweets, download=None, **kw):
+        since = datetime.now(timezone.utc) - timedelta(days=3)
+        return asyncio.run(xfetch.fetch_account(FakeX(tweets, **kw), "shop_a", Path(tmp), since, 20, download or (lambda url: b"img:" + url.encode())))
+
+    def test_fetch_saves_new_posts_with_images_and_skips_old_and_saved_ones(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tweets = [x_tweet(1, days_ago=30),  # 固定された古い投稿。飛ばして、次を読む
+                      x_tweet(2, photos=("https://pbs.twimg.com/media/A.jpg", "https://pbs.twimg.com/media/B.png")),
+                      x_tweet(3, photos=()), x_tweet(4, days_ago=1)]
+            self.assertEqual(self.fetch(tmp, tweets), (2, 0))
+            post = Path(tmp) / "shop_a" / "2"
+            self.assertEqual(sorted(p.name for p in post.iterdir()), ["1.jpg", "2.png", "post.json"])
+            self.assertEqual((post / "2.png").read_bytes(), b"img:https://pbs.twimg.com/media/B.png")
+            saved = json.loads((post / "post.json").read_text(encoding="utf-8"))
+            self.assertEqual((saved["text"], saved["files"]), ("本日の買取表です", ["1.jpg", "2.png"]))
+            self.assertFalse((Path(tmp) / "shop_a" / "1").exists())
+            # 2回目は、保存済みの投稿を取り直さない
+            calls = []
+            self.assertEqual(self.fetch(tmp, tweets, download=lambda url: calls.append(url) or b""), (0, 2))
+            self.assertEqual(calls, [])
+
+    def test_post_is_retried_when_an_image_download_failed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def broken(url):
+                raise OSError("timeout")
+
+            with self.assertRaises(OSError):
+                self.fetch(tmp, [x_tweet(2)], download=broken)
+            self.assertFalse((Path(tmp) / "shop_a" / "2" / "post.json").exists())
+            self.assertEqual(self.fetch(tmp, [x_tweet(2)]), (1, 0))  # post.json がないので、次の回に取り直す
+
+    def test_one_failed_account_does_not_stop_the_others(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            api = FakeX([x_tweet(2)], missing=("gone",))
+            ok = asyncio.run(xfetch.fetch_all(api, ["gone", "shop_a"], Path(tmp), 3, 20, lambda url: b"x", pause=0))
+            self.assertFalse(ok)  # 失敗があったことは、終了コードで分かる
+            self.assertTrue((Path(tmp) / "shop_a" / "2" / "post.json").exists())
+            self.assertEqual(api.asked, [20])
+
+    def test_stops_at_once_when_no_login_is_available(self):
+        class NoAccountError(Exception):
+            pass
+
+        class Locked(FakeX):
+            async def user_by_login(self, login):
+                self.asked.append(login)
+                raise NoAccountError("No account available")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            api = Locked([])
+            self.assertFalse(asyncio.run(xfetch.fetch_all(api, ["shop_a", "shop_b"], Path(tmp), 3, 20, lambda url: b"x", pause=0)))
+            self.assertEqual(api.asked, ["shop_a"])  # 2つ目は試さない
+
+    def test_run_explains_what_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(xfetch.run(Path(tmp) / "none.txt", Path(tmp) / "accounts.db", Path(tmp) / "out", 3, 20), 1)
 
 
 if __name__ == "__main__":
