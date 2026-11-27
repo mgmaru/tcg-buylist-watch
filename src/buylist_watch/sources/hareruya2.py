@@ -14,6 +14,8 @@ from ..http import Fetcher
 from ..models import Price
 
 NAME = "hareruya2"
+LABEL = "晴れる屋2"
+LINK = ("晴れる屋2で探す", "https://www.hareruya2.com/search?q={word}")
 JSON_URL = "https://api.corp.hareruyamtg.com/user_data/hareruya2/json/products_all.json"
 
 # 例: ポニータ:色違い:1ED(C){炎}〈019/090〉[Pt4]

@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 
 from . import compare, store
-from .sources import SOURCES
+from .sources import SOURCES, describe
 
 MOVER_KINDS = {"up", "down", "new", "removed"}
 
@@ -78,8 +78,8 @@ def build_data(data_dir: Path, min_buy: int = 1000, cross_limit: int = 2000) -> 
         prices = loaded[name]
         meta_path = src_dir / "meta.json"
         meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
-        shops.append({"id": name, "fetched_at": meta.get("fetched_at", ""), "since": meta.get("first_fetched_at", ""),
-                      "count": len(prices), "held": meta.get("held")})
+        shops.append({"id": name, **describe(name), "fetched_at": meta.get("fetched_at", ""),
+                      "since": meta.get("first_fetched_at", ""), "count": len(prices), "held": meta.get("held")})
         if not prices:
             continue
         changes = read_changes(src_dir)

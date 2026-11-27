@@ -15,6 +15,8 @@ from ..http import Fetcher
 from ..models import Price
 
 NAME = "cardrush"
+LABEL = "カードラッシュ"
+LINK = ("カードラッシュの買取表", "https://cardrush.media/pokemon/buying_prices?name={name}")
 BASE_URL = "https://cardrush.media/pokemon/buying_prices"
 _NEXT_DATA = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
 

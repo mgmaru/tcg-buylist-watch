@@ -6,7 +6,7 @@ from pathlib import Path
 
 from buylist_watch import compare, site, store
 from buylist_watch.models import Price
-from buylist_watch.sources import cardrush, hareruya2, yuyutei
+from buylist_watch.sources import SOURCES, bigweb, cardrush, hareruya2, yuyutei
 
 
 def price(item_id="1", name="ゴンベ", number="069/090", buy=60000, sell=None, variant="", set_code="DPt2-B"):
@@ -58,6 +58,67 @@ class Hareruya2Test(unittest.TestCase):
         prices = hareruya2.parse(raw)
         self.assertEqual((prices[0].sell_price, prices[0].buy_price), (30000, 0))
         self.assertEqual(prices[1].number, "")
+
+
+def bigweb_item(item_id, name, fname, comment, rarity, slip, price):
+    return {"id": item_id, "name": name, "fname": fname, "comment": comment, "rarity": {"web": rarity},
+            "cardset": {"slip": slip}, "price": price, "stock_count": 3, "is_sold_out": False}
+
+
+class BigwebTest(unittest.TestCase):
+    def one(self, *args):
+        return bigweb.parse_item(bigweb_item(*args))
+
+    def test_parse_plain_card(self):
+        p = self.one(3582558, "ピカチュウex", "【M6a】【J】", "(127/103) なんば店で展示中(3枚)", "SAR", "【M6a】30th CELEBRATION", 3600)
+        self.assertEqual((p.item_id, p.name, p.variant, p.set_code, p.number, p.rarity, p.buy_price, p.sell_price),
+                         ("3582558", "ピカチュウex", "", "M6a", "127/103", "SAR", 3600, None))
+
+    def test_spec_words_move_from_the_name_to_the_variant(self):
+        # 同じ仕様が名前・商品名・レアリティの3か所に書いてあっても、1つにまとめる
+        p = self.one(1, "クルミル(マスターボール柄)", "【SV11W】【I】(マスターボール柄ミラー)", "(001/086)", " - (ミラー)", "【SV11W】ホワイトフレア", 150)
+        self.assertEqual((p.name, p.variant, p.rarity), ("クルミル", "マスターボール柄ミラー", ""))
+        p = self.one(2, "カイリュー【Lv.45】", "【旧裏面 第3弾】", "<strong>※買取特記事項</strong>…", "★(キラ）", "【旧裏3】", 20000)
+        self.assertEqual((p.name, p.variant, p.set_code, p.number, p.rarity), ("カイリュー", "Lv.45 キラ", "旧裏3", "", "★"))
+        self.assertEqual(self.one(3, "(未開封)名探偵ピカチュウ", "【SM-P】", "(337/SM-P)", "プロモ", "【SM-P】", 9000).variant, "未開封")
+
+    def test_person_and_form_names_stay_in_the_name(self):
+        # ほかの店は人名や姿を名前に含めているので、合わせる
+        self.assertEqual(self.one(1, "ボスの指令(ゲーチス)", "【SV1a】【G】", "(095/073)", "SR", "【SV1a】トリプレットビート", 2000).name,
+                         "ボスの指令(ゲーチス)")
+        p = self.one(2, "ルギア(クリスタルタイプ)(30th復刻版)", "【M6a】【J】", "(142/103)", " - (キラ無表記)", "【M6a】30th CELEBRATION", 15000)
+        self.assertEqual((p.name, p.variant), ("ルギア(クリスタルタイプ)", "30th復刻版 キラ無表記"))
+
+    def test_first_edition_and_state_are_recorded_as_variant(self):
+        p = self.one(1, "ミツル", "【1ED】【CP3】", "(032/032)【状態A】", "SR", "【CP3】ポケキュンコレクション", 1300)
+        self.assertEqual((p.variant, p.set_code, p.number), ("1ED 状態A", "CP3", "032/032"))
+        self.assertEqual(self.one(2, "コルニ", "【1ED】【ポケモンカードゲームXY】", "(102/096)", "SR", "【XY3】", 76000).set_code, "XY3")
+
+    def test_set_code_uses_the_finer_one_when_the_category_groups_packs(self):
+        self.assertEqual(self.one(1, "ガラルヤドラン", "【sI】", "(252/414)", "TD", "【sI/sN】", 5).set_code, "sI")
+        self.assertEqual(self.one(2, "リーリエ", "【s8a-P】", "(020/025)", "プロモ", "【s8a】25th ANNIVERSARY COLLECTION", 9000).set_code, "s8a")
+        self.assertEqual(self.one(3, "旧裏面キラカード一律買取", "1枚500円", "1枚500円", "-", "買取専用", 500).set_code, "")
+
+    def test_fetch_follows_the_page_count(self):
+        def page(n):
+            return json.dumps({"success": True, "items": [bigweb_item(n, f"カード{n}", "【M6】", "(001/076)", "C", "【M6】", 10)],
+                               "pagenate": {"count": 3, "pageCount": 3, "page": n}}).encode()
+
+        class Fake:
+            urls = []
+
+            def get(self, url):
+                self.urls.append(url)
+                return page(int(url.rsplit("=", 1)[1]))
+
+        fake = Fake()
+        self.assertEqual([p.item_id for p in bigweb.fetch(fake)], ["1", "2", "3"])
+        self.assertTrue(all("is_purchase=1" in u for u in fake.urls))
+        self.assertEqual(len(list(bigweb.fetch(Fake(), max_pages=2))), 2)
+
+    def test_changed_json_shape_is_an_error(self):
+        with self.assertRaises(ValueError):
+            bigweb.parse(b'{"success": false}')
 
 
 YUYU_CARD = """<div class="card-product position-relative mt-4 {cls}"><a
@@ -357,6 +418,19 @@ class SiteTest(unittest.TestCase):
             self.assertEqual(out["cross"][0][10], 20000)
             self.assertEqual(out["generated_at"], "2026-11-11T05:00:00+09:00")
             self.assertEqual(out["shops"][0]["since"], "2026-11-10T05:00:00+09:00")  # 記録を始めた日時は最初の取得のまま
+
+    def test_shop_name_and_link_come_from_the_source_module(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store.save(Path(tmp), "cardrush", [price("1")], "2026-11-11T05:00:00+09:00")
+            shops = site.build_data(Path(tmp))["shops"]
+            # 店の並び順は、画面が履歴やグラフの色を引くときの番号になる。新しい店は最後に足す
+            self.assertEqual([s["id"] for s in shops][:3], ["cardrush", "hareruya2", "yuyutei"])
+            self.assertEqual([s["id"] for s in shops], list(SOURCES))
+            self.assertEqual(shops[0]["label"], "カードラッシュ")
+            self.assertEqual(shops[0]["link"], {"text": "カードラッシュの買取表", "url": "https://cardrush.media/pokemon/buying_prices?name={name}"})
+            for s in shops:
+                self.assertTrue(s["label"])
+                self.assertTrue(s["link"] is None or "{name}" in s["link"]["url"] or "{word}" in s["link"]["url"])
 
     def test_build_writes_history_to_its_own_file(self):
         with tempfile.TemporaryDirectory() as tmp:
