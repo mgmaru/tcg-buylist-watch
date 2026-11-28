@@ -26,7 +26,6 @@ name,number,buy_shop,buy_set,buy_variant,buy_price,sell_shop,sell_set,sell_varia
 カビゴンLV.X,127/DP-P,cardrush,その他,,270000,hareruya2,Pt-P,,32000,238000,8.44
 エンテイ,062/L-P,cardrush,その他,,500000,hareruya2,L-P,,300000,200000,1.67
 エンテイ☆,019/106,cardrush,その他,アンリミ,850000,hareruya2,P4,再販,650000,200000,1.31
-カイリュー,126/128,torecolo,KK1,,280000,hareruya2,e1,キラ,80000,200000,3.5
 サンダース☆,023/PLAY,torecolo,PLAY,,800000,hareruya2,P-P,,650000,150000,1.23
 シャワーズ☆,022/PLAY,torecolo,PLAY,,800000,hareruya2,P-P,,650000,150000,1.23
 ゼニガメ,007/018,torecolo,MOMP,,500000,hareruya2,eM,,350000,150000,1.43
@@ -156,6 +155,7 @@ N,180/171,bigweb,XY BEST,,160000,hareruya2,XY/171,,150000,10000,1.07
 アルセウス,021/022,cardrush,DPt-MRP09,,30000,hareruya2,PtRP,,20000,10000,1.5
 アルセウス,022/022,cardrush,DPt-MRP09,,30000,hareruya2,PtRP,,20000,10000,1.5
 イーブイ,287/SM-P,torecolo,SM-P,,280000,hareruya2,SM-P,,270000,10000,1.04
+カイリュー,126/128,torecolo,KK1,,280000,hareruya2,e1,キラ,270000,10000,1.04
 カメックスEX,092/087,cardrush,CP6,,140000,hareruya2,CP6,,130000,10000,1.08
 クレセリア,020/L-P,cardrush,その他,,50000,hareruya2,L-P,,40000,10000,1.25
 クレセリアEX,060/059,cardrush,BW6,,30000,hareruya2,BW6-l,,20000,10000,1.5
@@ -183,7 +183,6 @@ N,180/171,bigweb,XY BEST,,160000,hareruya2,XY/171,,150000,10000,1.07
 ゴウカザル,060/092,cardrush,DPs,,11000,hareruya2,DP6,,3000,8000,3.67
 ダストダス,056/051,torecolo,BW8,,48000,hareruya2,BW8-b,,40000,8000,1.2
 ヒノアラシ,006/018,torecolo,MOMP,,15000,hareruya2,eM,,7000,8000,2.14
-ピカチュウ,048/DP-P,torecolo,DP-P,,28000,hareruya2,DP-P,,20000,8000,1.4
 レックウザVMAX,082/067,torecolo,S7R,,35000,hareruya2,S7R,,27000,8000,1.3
 ワニノコ,008/018,torecolo,MOMP,,15000,hareruya2,eM,,7000,8000,2.14
 基本悪エネルギー,028/DPt-P,cardrush,その他,DPキラ,14000,hareruya2,Pt-P,,6000,8000,2.33
@@ -274,7 +273,6 @@ MピジョットEX,097/087,cardrush,CP6,,35000,hareruya2,CP6,,30000,5000,1.17
 ライチュウ,005/015,cardrush,DPt-GBpi,,3600,hareruya2,PM,,500,3100,7.2
 ゲーチス,055/051,torecolo,BW8,,48000,hareruya2,BW8-p,,45000,3000,1.07
 ミロカロスex,131/106,torecolo,SV8,,13000,hareruya2,SV8,,10000,3000,1.3
-メガカイリューex,250/193,torecolo,M2A,,22000,hareruya2,M2a,,19000,3000,1.16
 メガゲッコウガex,120/083,torecolo,M4,,43000,hareruya2,M4,,40000,3000,1.07
 ラティアスex,087/064,torecolo,SV7A,,23000,hareruya2,SV7a,,20000,3000,1.15
 ランドロス,112/BW-P,cardrush,その他,SR仕様,18000,hareruya2,BW-P,,15000,3000,1.2
@@ -313,7 +311,6 @@ MレックウザEX,024/025,bigweb,s8a,,14000,hareruya2,S8a-P,,12000,2000,1.17
 アブソル,034/ADV-P,torecolo,ADV-P,,10000,hareruya2,AD-P,,8000,2000,1.25
 アルセウス&ディアルガ&パルキアGX,100/095,torecolo,SM12,,130000,yuyutei,SM12,,128000,2000,1.02
 キュウコン,022/087,torecolo,UMKZ,,7000,hareruya2,e3,,5000,2000,1.4
-ギラティナ,008/013,cardrush,DPt-EPg,,10000,hareruya2,PtE-g,,8000,2000,1.25
 コイキング&ホエルオーGX,099/095,torecolo,SM9,,120000,yuyutei,SM9,,118000,2000,1.02
 サーナイト&ニンフィアGX,061/055,torecolo,SM9A,,110000,yuyutei,SM9a,,108000,2000,1.02
 サーナイト&ニンフィアGX,067/055,torecolo,SM9A,,22000,hareruya2,SM9a,,20000,2000,1.1
@@ -336,7 +333,9 @@ MレックウザEX,024/025,bigweb,s8a,,14000,hareruya2,S8a-P,,12000,2000,1.17
 マリル,009/018,torecolo,MOMP,,12000,hareruya2,eM,,10000,2000,1.2
 ミュウex,014/025,bigweb,s8a,,9000,hareruya2,S8a-P,,7000,2000,1.29
 ミュウツーV,074/071,torecolo,S10B,SA仕様,11000,hareruya2,S10b,SA,9000,2000,1.22
+ミュウツーV,273/S-P,yuyutei,spromo-300,,6000,hareruya2,S-P,,4000,2000,1.5
 ミュウツーV,273/S-P,bigweb,S-P,,6000,hareruya2,S-P,,4000,2000,1.5
+メガカイリューex,250/193,torecolo,M2A,,22000,hareruya2,M2a,,20000,2000,1.1
 メリープ,008/L-P,cardrush,その他,,10000,hareruya2,L-P,,8000,2000,1.25
 ライコウEX,071/069,cardrush,BW4,,22000,hareruya2,BW4,,20000,2000,1.1
 リーシャン,087/DP-P,cardrush,PROMO,,4000,hareruya2,DP-P,,2000,2000,2.0
@@ -347,6 +346,7 @@ MレックウザEX,024/025,bigweb,s8a,,14000,hareruya2,S8a-P,,12000,2000,1.17
 チェリム,047/DP-P,cardrush,PROMO,,5900,hareruya2,DP-P,,4000,1900,1.48
 メイのはげまし,115/080,torecolo,M3,,10000,hareruya2,M3,,8100,1900,1.23
 フーパ,157/XY-P,cardrush,XY,,3500,hareruya2,XY-P,,1800,1700,1.94
+カイリューVSTAR,086/071,hareruya2,S10b,,3400,yuyutei,S10b,,1780,1620,1.91
 イーブイ,068/090,cardrush,DPt2-B,,3600,hareruya2,Pt2,,2000,1600,1.8
 シャワーズ,014/090,cardrush,DPt2-B,,3600,hareruya2,Pt2,,2000,1600,1.8
 ナエトル,001/014,cardrush,DPt-GBna,,6600,hareruya2,PtGB-g,,5000,1600,1.32
@@ -406,6 +406,7 @@ MジュカインEX,007/171,cardrush,XY,,3500,yuyutei,HP,,2480,1020,1.41
 ミュウツー,150/165,yuyutei,SV2a,マスターボール柄/ミラー仕様,14000,hareruya2,SV2a-Ma,マスターボールミラー,13000,1000,1.08
 ミュウツーVSTAR,091/071,bigweb,s10b,,5500,hareruya2,S10b,,4500,1000,1.22
 メガルカリオex,092/063,torecolo,M1L,,38000,hareruya2,M1L,,37000,1000,1.03
+メガレックウザex,110/076,torecolo,M6,,28000,hareruya2,M6,,27000,1000,1.04
 ランドロスEX,061/059,cardrush,BW6,,11000,hareruya2,BW6-l,,10000,1000,1.1
 リザードンex,201/165,torecolo,SV2A,,55000,hareruya2,SV2a,,54000,1000,1.02
 ルチアのアピール,091/064,torecolo,SV7A,,18000,hareruya2,SV7a,,17000,1000,1.06
@@ -449,11 +450,9 @@ Nのゾロアークex,127/100,torecolo,SV9,,7500,yuyutei,SV9,,6980,520,1.07
 ギラティナEX,039/050,cardrush,その他,,6500,hareruya2,BW5-g,,6000,500,1.08
 サナ,077/067,torecolo,S7R,,6000,hareruya2,S7R,,5500,500,1.09
 タケシのクロバット,002/018,torecolo,VSP,,5000,hareruya2,eVS,,4500,500,1.11
-チコリータ,028/PCG-P,torecolo,PCG-P,,3000,hareruya2,P-P,,2500,500,1.2
 チョロネコ,013/020,cardrush,SC,,5000,hareruya2,SC,,4500,500,1.11
 チルタリスex,090/066,torecolo,SV4M,,7500,hareruya2,SV4M,,7000,500,1.07
 ブラックキュレムEX,084/093,cardrush,EBB,,3500,hareruya2,EBB,,3000,500,1.17
-ミュウツーV,273/S-P,yuyutei,spromo-300,,4500,hareruya2,S-P,,4000,500,1.12
 ラウドボーンex,097/073,torecolo,SV1A,,4500,hareruya2,SV1a,,4000,500,1.12
 レックウザV,075/067,bigweb,s7R,,10000,hareruya2,S7R,,9500,500,1.05
 ロケット団のミュウツーex,130/098,torecolo,SV10,,6500,hareruya2,SV10,,6000,500,1.08
@@ -467,6 +466,7 @@ Nのゾロアークex,127/100,torecolo,SV9,,7500,yuyutei,SV9,,6980,520,1.07
 ブイゼル,009/DP-P,cardrush,PROMO,,3400,hareruya2,DP-P,,3000,400,1.13
 ベルのまごころ,097/071,torecolo,SV5M,,4000,hareruya2,SV5M,,3600,400,1.11
 現実世界のギラティナ,109/DP-P,cardrush,PROMO,,7400,hareruya2,DP-P,,7000,400,1.06
+ガラルフリーザーV,074/070,cardrush,S5a,SA,7300,yuyutei,S5a,,6980,320,1.05
 シロナ,155/S-P,hareruya2,S-P,,3300,yuyutei,spromo-200,,2980,320,1.11
 アルセウスV,112/100,torecolo,S9,,8500,hareruya2,S9,SA,8200,300,1.04
 キハダ,099/073,torecolo,SV1A,,6500,hareruya2,SV1a,,6200,300,1.05
@@ -526,8 +526,6 @@ MルカリオEX,053/096,hareruya2,XY3,,6000,yuyutei,XY3,,5980,20,1.0
 MルカリオEX,075/131,cardrush,その他,,7000,yuyutei,CP4,キラ,6980,20,1.0
 れんげきウーラオスV,077/070,hareruya2,S5R,SA,3500,yuyutei,S5R,,3480,20,1.01
 イベルタルEX,079/131,hareruya2,CP4,,3000,yuyutei,CP4,キラ,2980,20,1.01
-イーブイ,201/150,cardrush,sm8b,,10000,yuyutei,SM8b,,9980,20,1.0
-イーブイ,201/150,hareruya2,SM8b,,10000,yuyutei,SM8b,,9980,20,1.0
 イーブイex,224/187,torecolo,SV8A,,4000,yuyutei,SV8a,,3980,20,1.01
 オニゴーリEX,060/059,cardrush,XY8,,9000,yuyutei,XY8,,8980,20,1.0
 オリジンパルキアV,071/067,torecolo,S10P,071,9000,yuyutei,S10P,,8980,20,1.0
