@@ -1,0 +1,6 @@
+change,item_id,name,variant,set_code,number,old_buy,new_buy,old_sell,new_sell
+up,55824,ワッカネズミ,,SV4A,317/190,500,600,,
+up,55825,イッカネズミ,,SV4A,318/190,500,600,,
+removed,102990,フシギダネ,AR仕様,PROMO,101/M-P,200,,,
+removed,102991,ヒトカゲ,AR仕様,PROMO,102/M-P,300,,,
+removed,102992,ゼニガメ,AR仕様,PROMO,103/M-P,200,,,
